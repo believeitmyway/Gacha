@@ -5,13 +5,15 @@
 const INITIAL_GOLD = 500;
 const GACHA_COST = 100;
 const STORAGE_KEY = 'gacha_rpg_vanilla';
+const STORAGE_KEY_MASTER = 'gacha_rpg_master_items';
 
 // Simple State
 let state = {
     users: [],
     currentUser: null,
     view: 'login', // 'login', 'dashboard', 'gacha'
-    modal: null // 'parentMode', 'transfer', 'gachaResult'
+    modal: null, // 'parentMode', 'transfer', 'gachaResult'
+    masterItems: { weapon: [], material: [], gold: [] }
 };
 
 // --- Utilities ---
@@ -29,11 +31,55 @@ function loadState() {
             console.error("Failed to load data", e);
         }
     }
+    initializeMasterData();
 }
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ users: state.users }));
     render();
+}
+
+function initializeMasterData() {
+    const saved = localStorage.getItem(STORAGE_KEY_MASTER);
+    if (saved) {
+        try {
+            state.masterItems = JSON.parse(saved);
+            return;
+        } catch (e) {
+            console.error("Failed to load master data", e);
+        }
+    }
+
+    // Default initialization from items.js globals
+    // Assign default weights if missing
+    const assignWeight = (items) => items.map(i => ({
+        ...i,
+        weight: (i.weight !== undefined) ? i.weight : getDefaultWeight(i.rarity)
+    }));
+
+    state.masterItems = {
+        weapon: assignWeight(typeof WEAPON_POOL !== 'undefined' ? WEAPON_POOL : []),
+        material: assignWeight(typeof MATERIAL_POOL !== 'undefined' ? MATERIAL_POOL : []),
+        gold: assignWeight(typeof GOLD_POOL !== 'undefined' ? GOLD_POOL : [])
+    };
+
+    saveMasterState();
+}
+
+function getDefaultWeight(rarity) {
+    // Higher rarity = Lower weight
+    switch(rarity) {
+        case 5: return 5;
+        case 4: return 20;
+        case 3: return 50;
+        case 2: return 80;
+        case 1: return 100;
+        default: return 50;
+    }
+}
+
+function saveMasterState() {
+    localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(state.masterItems));
 }
 
 // --- Logic ---
@@ -78,21 +124,30 @@ function pullGacha(type) {
 
     // Select Pool
     let pool = [];
-    if (type === 'weapon') pool = WEAPON_POOL;
-    if (type === 'material') pool = MATERIAL_POOL;
-    if (type === 'gold') pool = GOLD_POOL;
+    if (type === 'weapon') pool = state.masterItems.weapon;
+    if (type === 'material') pool = state.masterItems.material;
+    if (type === 'gold') pool = state.masterItems.gold;
+
+    if (!pool || pool.length === 0) {
+        console.error("No items in pool for type:", type);
+        return null;
+    }
 
     // Weighted Random
-    const rand = Math.random() * 100;
-    let rarityTarget = 1;
-    if (rand < 5) rarityTarget = 5;
-    else if (rand < 20) rarityTarget = 4;
-    else if (rand < 50) rarityTarget = 3;
-    else if (rand < 80) rarityTarget = 2;
-    else rarityTarget = 1;
+    const totalWeight = pool.reduce((sum, item) => sum + (item.weight || 0), 0);
+    let rand = Math.random() * totalWeight;
 
-    const candidates = pool.filter(i => i.rarity === rarityTarget);
-    const item = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : pool[0];
+    let item = null;
+    for (const candidate of pool) {
+        rand -= (candidate.weight || 0);
+        if (rand < 0) {
+            item = candidate;
+            break;
+        }
+    }
+
+    // Fallback if something goes wrong (e.g. weights are 0)
+    if (!item) item = pool[0];
 
     // Update User
     state.currentUser.gold -= GACHA_COST;
@@ -454,14 +509,23 @@ function verifyParentPin() {
         const content = document.getElementById('parent-content');
         content.innerHTML = `
             <div class="space-y-4">
+                <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1">ゴールド管理</h4>
                 <select id="parent-user-select" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
                     <option value="">対象の冒険者を選択</option>
                     ${window.tempUserOptions}
                 </select>
-                <input type="number" id="parent-amount" value="500" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
-                <button onclick="execAddGold()" class="w-full btn-primary py-2">ゴールドを追加</button>
+                <div class="flex gap-2">
+                    <input type="number" id="parent-amount" value="500" class="flex-1 bg-black/50 border border-gray-600 rounded p-2 text-white">
+                    <button onclick="execAddGold()" class="px-4 bg-gold/20 text-gold border border-gold/50 rounded hover:bg-gold/30">追加</button>
+                </div>
+
+                <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1 pt-4">システム管理</h4>
+                <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2">
+                    <i data-lucide="database"></i> アイテムデータベース編集
+                </button>
             </div>
         `;
+        lucide.createIcons();
     } else {
         alert("暗証番号が違います");
     }
@@ -526,3 +590,232 @@ function execTransfer() {
 // --- Init ---
 loadState();
 render();
+
+function renderItemManager(currentTab = 'weapon') {
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col animate-fade-in">
+                <!-- Header -->
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-2xl font-fantasy text-gold flex items-center gap-2">
+                        <i data-lucide="database"></i> アイテムデータベース
+                    </h2>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-white p-2">
+                        <i data-lucide="x" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex border-b border-white/10 px-6 pt-4 gap-4">
+                    <button onclick="renderItemManager('weapon')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'weapon' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">武器</button>
+                    <button onclick="renderItemManager('material')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'material' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">素材</button>
+                    <button onclick="renderItemManager('gold')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'gold' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">財宝</button>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="p-4 bg-black/20 flex justify-between items-center">
+                    <div class="text-sm text-gray-400">
+                        登録数: <span class="text-white font-bold">${state.masterItems[currentTab].length}</span>
+                    </div>
+                    <button onclick="openItemEditor(null, '${currentTab}')" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded flex items-center gap-2 text-sm font-bold transition-colors">
+                        <i data-lucide="plus"></i> 新規追加
+                    </button>
+                </div>
+
+                <!-- List -->
+                <div class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-2">
+                    ${state.masterItems[currentTab].map(item => `
+                        <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors group">
+                             <!-- Image Preview -->
+                            <div class="w-12 h-12 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-600">
+                                ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover">` : '<span class="text-xs text-gray-500">No Img</span>'}
+                            </div>
+
+                            <!-- Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-white truncate">${item.name}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${item.id}</span>
+                                </div>
+                                <div class="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                                    <span class="text-yellow-500">★${item.rarity}</span>
+                                    <span>Weight: <b class="text-white">${item.weight}</b></span>
+                                    ${item.value ? `<span>Value: ${item.value}G</span>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="openItemEditor('${item.id}', '${currentTab}')" class="p-2 hover:bg-white/10 rounded text-blue-400" title="編集">
+                                    <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteItem('${item.id}', '${currentTab}')" class="p-2 hover:bg-white/10 rounded text-red-400" title="削除">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `).join('')}
+
+                    ${state.masterItems[currentTab].length === 0 ? `
+                        <div class="text-center py-12 text-gray-500">
+                            アイテムがありません
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function deleteItem(itemId, type) {
+    if(!confirm("本当にこのアイテムを削除しますか？\n(すでに持っているユーザーの持ち物は消えません)")) return;
+
+    state.masterItems[type] = state.masterItems[type].filter(i => i.id !== itemId);
+    saveMasterState();
+    renderItemManager(type);
+}
+
+// --- Item Editor ---
+
+function openItemEditor(itemId, type) {
+    const item = itemId ? state.masterItems[type].find(i => i.id === itemId) : {
+        id: generateId(),
+        type: type,
+        rarity: 1,
+        weight: 50,
+        name: '',
+        description: '',
+        value: 0
+    };
+
+    const isNew = !itemId;
+
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-2xl rounded-xl shadow-2xl animate-fade-in-up">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-xl font-fantasy text-gold">${isNew ? '新規アイテム作成' : 'アイテム編集'}</h2>
+                    <button onclick="renderItemManager('${type}')" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                </div>
+
+                <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs text-gray-500 mb-1">名称</label>
+                            <input type="text" id="edit-name" value="${item.name}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">レアリティ (1-5)</label>
+                            <select id="edit-rarity" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
+                                <option value="1" ${item.rarity == 1 ? 'selected' : ''}>★1 (Common)</option>
+                                <option value="2" ${item.rarity == 2 ? 'selected' : ''}>★2 (Uncommon)</option>
+                                <option value="3" ${item.rarity == 3 ? 'selected' : ''}>★3 (Rare)</option>
+                                <option value="4" ${item.rarity == 4 ? 'selected' : ''}>★4 (Epic)</option>
+                                <option value="5" ${item.rarity == 5 ? 'selected' : ''}>★5 (Legendary)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">排出確率の重み (Weight)</label>
+                            <input type="number" id="edit-weight" value="${item.weight || 50}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white" placeholder="例: 50">
+                            <p class="text-[10px] text-gray-500 mt-1">数値が高いほど当たりやすくなります</p>
+                        </div>
+
+                        ${type === 'gold' ? `
+                        <div class="col-span-2">
+                            <label class="block text-xs text-gray-500 mb-1">獲得ゴールド量</label>
+                            <input type="number" id="edit-value" value="${item.value || 0}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">説明文</label>
+                        <textarea id="edit-desc" rows="3" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">${item.description || ''}</textarea>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="border-t border-white/10 pt-4">
+                        <label class="block text-xs text-gray-500 mb-2">アイテム画像</label>
+                        <div class="flex items-start gap-4">
+                            <div id="image-preview" class="w-24 h-24 bg-black/50 border border-gray-700 rounded flex items-center justify-center overflow-hidden">
+                                ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover">` : '<i data-lucide="image" class="text-gray-600"></i>'}
+                            </div>
+                            <div class="flex-1">
+                                <input type="file" id="edit-image-file" accept="image/*" class="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/20 file:text-gold hover:file:bg-gold/30 mb-2">
+                                <p class="text-xs text-gray-500">
+                                    推奨: 正方形の画像 (JPEG/PNG)<br>
+                                    ※ 画像は自動的に圧縮されます
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+                        <button onclick="renderItemManager('${type}')" class="px-4 py-2 rounded text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                        <button onclick="saveItem('${item.id}', '${type}')" class="btn-primary px-6 py-2 rounded shadow-lg">保存する</button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    // Image Preview Handler
+    document.getElementById('edit-image-file').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Ideally we should resize this here, but for simplicity we just show preview
+                const preview = document.getElementById('image-preview');
+                preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+                // Store temporarily
+                window.tempImageBase64 = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Store existing image if any
+    window.tempImageBase64 = item.image || null;
+}
+
+function saveItem(id, type) {
+    const name = document.getElementById('edit-name').value;
+    const rarity = parseInt(document.getElementById('edit-rarity').value);
+    const weight = parseInt(document.getElementById('edit-weight').value);
+    const desc = document.getElementById('edit-desc').value;
+    const val = document.getElementById('edit-value') ? parseInt(document.getElementById('edit-value').value) : undefined;
+
+    if (!name) return alert("名前を入力してください");
+
+    const newItem = {
+        id: id,
+        type: type,
+        name: name,
+        rarity: rarity,
+        weight: weight,
+        description: desc,
+        value: val,
+        image: window.tempImageBase64
+    };
+
+    // Update State
+    const index = state.masterItems[type].findIndex(i => i.id === id);
+    if (index >= 0) {
+        state.masterItems[type][index] = newItem;
+    } else {
+        state.masterItems[type].push(newItem);
+    }
+
+    saveMasterState();
+    alert("保存しました！");
+    renderItemManager(type);
+}
