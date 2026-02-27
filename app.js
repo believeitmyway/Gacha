@@ -450,7 +450,7 @@ function openParentMode() {
 
 function verifyParentPin() {
     const pin = document.getElementById('parent-pin').value;
-    if (pin === '1234') {
+    if (pin === '20211004') {
         const content = document.getElementById('parent-content');
         content.innerHTML = `
             <div class="space-y-4">
