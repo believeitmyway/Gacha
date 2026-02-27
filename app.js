@@ -13,8 +13,111 @@ let state = {
     currentUser: null,
     view: 'login', // 'login', 'dashboard', 'gacha'
     modal: null, // 'parentMode', 'transfer', 'gachaResult'
-    masterItems: { weapon: [], material: [], gold: [] }
+    masterItems: { weapon: [], material: [], gold: [] },
+    soundSettings: {
+        login: '',
+        transfer: '',
+        gachaPull: '',
+        resultLow: '',
+        resultMid: '',
+        resultHigh: ''
+    }
 };
+
+const STORAGE_KEY_SOUNDS = 'gacha_rpg_sounds';
+
+// --- Audio Utilities ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new AudioContext();
+    }
+}
+
+function playTone(freq, type, duration, vol = 0.5) {
+    if (!audioCtx) initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+function playSound(type) {
+    initAudio();
+
+    // Check if custom URL exists
+    const url = state.soundSettings[type];
+    if (url && url.trim() !== '') {
+        const audio = new Audio(url);
+        audio.play().catch(e => console.error("Error playing custom audio:", e));
+        return;
+    }
+
+    // Default synthesizers
+    switch(type) {
+        case 'login':
+            // Deep boom (Door opening)
+            playTone(100, 'square', 0.5, 0.8);
+            setTimeout(() => playTone(80, 'square', 1.0, 0.8), 200);
+            setTimeout(() => playTone(50, 'sine', 2.0, 1.0), 400);
+            break;
+        case 'transfer':
+            // Clink clink (Coins)
+            playTone(1200, 'sine', 0.1, 0.3);
+            setTimeout(() => playTone(1500, 'sine', 0.1, 0.3), 100);
+            setTimeout(() => playTone(2000, 'sine', 0.3, 0.4), 200);
+            break;
+        case 'gachaPull':
+            // Charging up
+            if(audioCtx) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 2.0);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 2.0);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 2.0);
+            }
+            break;
+        case 'resultLow':
+            // Simple pop
+            playTone(400, 'sine', 0.1);
+            setTimeout(() => playTone(600, 'sine', 0.2), 100);
+            break;
+        case 'resultMid':
+            // Happy arpeggio
+            playTone(440, 'triangle', 0.1);
+            setTimeout(() => playTone(554, 'triangle', 0.1), 100);
+            setTimeout(() => playTone(659, 'triangle', 0.1), 200);
+            setTimeout(() => playTone(880, 'triangle', 0.4), 300);
+            break;
+        case 'resultHigh':
+            // Epic fanfare
+            playTone(523.25, 'square', 0.2, 0.4); // C5
+            setTimeout(() => playTone(523.25, 'square', 0.2, 0.4), 200);
+            setTimeout(() => playTone(523.25, 'square', 0.2, 0.4), 400);
+            setTimeout(() => playTone(659.25, 'square', 0.6, 0.4), 600); // E5
+            setTimeout(() => playTone(587.33, 'square', 0.4, 0.4), 1200); // D5
+            setTimeout(() => playTone(783.99, 'square', 1.5, 0.5), 1600); // G5
+            break;
+    }
+}
 
 // --- Utilities ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -31,12 +134,26 @@ function loadState() {
             console.error("Failed to load data", e);
         }
     }
+
+    const savedSounds = localStorage.getItem(STORAGE_KEY_SOUNDS);
+    if (savedSounds) {
+        try {
+            state.soundSettings = JSON.parse(savedSounds);
+        } catch (e) {
+            console.error("Failed to load sound settings", e);
+        }
+    }
+
     initializeMasterData();
 }
 
 function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ users: state.users }));
     render();
+}
+
+function saveSoundSettings() {
+    localStorage.setItem(STORAGE_KEY_SOUNDS, JSON.stringify(state.soundSettings));
 }
 
 function initializeMasterData() {
@@ -84,12 +201,60 @@ function saveMasterState() {
 
 // --- Logic ---
 
+function performLoginAnimation(callback) {
+    playSound('login');
+
+    // Create door animation elements
+    const doorContainer = document.createElement('div');
+    doorContainer.className = "fixed inset-0 z-[100] flex pointer-events-none";
+
+    const leftDoor = document.createElement('div');
+    leftDoor.className = "w-1/2 h-full bg-stone-900 border-r-4 border-gold/50 transition-transform duration-[1500ms] ease-in-out flex items-center justify-end overflow-hidden shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]";
+    leftDoor.innerHTML = '<div class="w-16 h-16 rounded-full border-4 border-gold/50 -mr-8 bg-stone-800"></div>';
+
+    const rightDoor = document.createElement('div');
+    rightDoor.className = "w-1/2 h-full bg-stone-900 border-l-4 border-gold/50 transition-transform duration-[1500ms] ease-in-out flex items-center justify-start overflow-hidden shadow-[inset_0_0_100px_rgba(0,0,0,0.8)]";
+    rightDoor.innerHTML = '<div class="w-16 h-16 rounded-full border-4 border-gold/50 -ml-8 bg-stone-800"></div>';
+
+    // Light flash behind doors
+    const light = document.createElement('div');
+    light.className = "absolute inset-0 bg-white opacity-0 transition-opacity duration-500 z-[-1]";
+
+    doorContainer.appendChild(light);
+    doorContainer.appendChild(leftDoor);
+    doorContainer.appendChild(rightDoor);
+    document.body.appendChild(doorContainer);
+
+    // Trigger animation
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            light.classList.remove('opacity-0');
+            light.classList.add('opacity-100');
+            leftDoor.style.transform = "translateX(-100%)";
+            rightDoor.style.transform = "translateX(100%)";
+        }, 100);
+
+        setTimeout(() => {
+            light.classList.remove('opacity-100');
+            light.classList.add('opacity-0');
+        }, 800);
+
+        setTimeout(() => {
+            document.body.removeChild(doorContainer);
+            callback();
+        }, 1600);
+    });
+}
+
 function login(username, password) {
     const user = state.users.find(u => u.username === username && u.password === password);
     if (user) {
-        state.currentUser = user;
-        state.view = 'dashboard';
-        render();
+        // Only set user, let animation handle the view switch
+        performLoginAnimation(() => {
+            state.currentUser = user;
+            state.view = 'dashboard';
+            render();
+        });
         return true;
     }
     return false;
@@ -107,9 +272,13 @@ function register(username, password) {
         history: []
     };
     state.users.push(newUser);
-    state.currentUser = newUser;
-    state.view = 'dashboard';
     saveState();
+
+    performLoginAnimation(() => {
+        state.currentUser = newUser;
+        state.view = 'dashboard';
+        render();
+    });
     return true;
 }
 
@@ -426,41 +595,88 @@ function startGacha(type) {
         return;
     }
 
-    // Show Loading
-    modalContainer.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto";
+    playSound('gachaPull');
+
+    // Show Loading with flashy effects
+    modalContainer.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto overflow-hidden";
     modalContainer.innerHTML = `
-        <div class="flex flex-col items-center">
-            <div class="w-32 h-32 rounded-full border-4 border-t-transparent border-gold mb-8 animate-spin"></div>
-            <h2 class="text-3xl font-fantasy text-gradient-gold tracking-widest uppercase animate-pulse">召喚中...</h2>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold/20 via-black to-black animate-pulse"></div>
+        <div class="flex flex-col items-center relative z-10 animate-shake" style="animation-duration: 0.5s; animation-iteration-count: infinite;">
+            <div class="w-40 h-40 rounded-full border-8 border-t-gold border-r-gold-dark border-b-transparent border-l-transparent mb-8 animate-[spin_0.5s_linear_infinite] shadow-[0_0_50px_rgba(255,215,0,0.5)]"></div>
+            <h2 class="text-5xl font-fantasy text-gradient-gold tracking-widest uppercase drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">召喚中...</h2>
         </div>
     `;
 
     setTimeout(() => {
         const item = pullGacha(type);
-        renderGachaResult(item);
-    }, 2500);
+        if(item) renderGachaResult(item);
+    }, 2000); // Wait for the charge up sound to almost finish
 }
 
 function renderGachaResult(item) {
-    modalContainer.innerHTML = `
-        <div class="absolute inset-0 bg-gradient-radial from-gold/10 to-transparent pointer-events-none animate-pulse"></div>
-        <div class="relative z-10 flex flex-col items-center text-center animate-bounce-in">
-            <div class="mb-8 relative transform transition-all duration-700 scale-100">
-                 <div class="w-48 h-48 rounded-2xl flex items-center justify-center text-8xl shadow-[0_0_100px_rgba(255,215,0,0.3)] ${getRarityGradient(item.rarity)}">
-                    ${item.type === 'weapon' ? '⚔️' : item.type === 'material' ? '🧱' : '💰'}
-                 </div>
-                 <div class="absolute -bottom-6 left-1/2 -translate-x-1/2 flex gap-1">
-                    ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-current drop-shadow-lg"></i>'.repeat(item.rarity)}
-                 </div>
+    let delay = 0;
+    let shakeClass = '';
+    let particles = '';
+    let soundType = 'resultLow';
+
+    // Determine effects based on rarity
+    if (item.rarity >= 4) {
+        delay = 2000; // Build-up delay for high rarity
+        shakeClass = 'animate-shake';
+        soundType = 'resultHigh';
+
+        // Generate intense particles
+        for(let i=0; i<50; i++) {
+            const tx = (Math.random() - 0.5) * 500;
+            const ty = (Math.random() - 0.5) * 500;
+            const color = item.rarity === 5 ? 'bg-yellow-300' : 'bg-purple-400';
+            particles += `<div class="absolute top-1/2 left-1/2 w-3 h-3 rounded-full ${color} shadow-[0_0_10px_currentColor] opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1.5s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+        }
+    } else if (item.rarity === 3) {
+        delay = 500;
+        soundType = 'resultMid';
+        // Moderate particles
+        for(let i=0; i<20; i++) {
+            const tx = (Math.random() - 0.5) * 300;
+            const ty = (Math.random() - 0.5) * 300;
+            particles += `<div class="absolute top-1/2 left-1/2 w-2 h-2 rounded-full bg-blue-300 shadow-[0_0_5px_currentColor] opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+        }
+    }
+
+    // Pre-result suspense for high rarity
+    if (delay > 0) {
+        modalContainer.innerHTML = `
+            <div class="fixed inset-0 bg-white/20 animate-pulse flex items-center justify-center ${shakeClass}">
+                 <div class="w-20 h-20 rounded-full bg-white shadow-[0_0_100px_rgba(255,255,255,1)] animate-ping"></div>
             </div>
-            <h2 class="text-4xl md:text-6xl font-fantasy mb-4 px-4 text-white drop-shadow-xl ${item.rarity === 5 ? 'animate-pulse text-gold' : ''}">${item.name}</h2>
-            <p class="text-gray-400 text-lg mb-8 font-fantasy tracking-widest uppercase">${getItemTypeJA(item.type)} • ${item.description || (item.value ? `価値: ${item.value}G` : 'レアアイテム')}</p>
-            <button onclick="closeModal()" class="btn-primary px-12 py-4 text-xl flex items-center gap-2">
-                <i data-lucide="x" class="w-6 h-6"></i> 閉じる
-            </button>
-        </div>
-    `;
-    lucide.createIcons();
+        `;
+    }
+
+    setTimeout(() => {
+        playSound(soundType);
+
+        modalContainer.className = `fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto ${shakeClass}`;
+        modalContainer.innerHTML = `
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold/30 to-black pointer-events-none ${item.rarity >= 4 ? 'animate-pulse' : ''}"></div>
+            ${particles}
+            <div class="relative z-10 flex flex-col items-center text-center animate-bounce-in transform scale-110">
+                <div class="mb-8 relative">
+                     <div class="w-56 h-56 rounded-2xl flex items-center justify-center text-8xl shadow-[0_0_150px_rgba(255,215,0,0.6)] ${getRarityGradient(item.rarity)} border-4 ${item.rarity >= 4 ? 'border-yellow-200' : 'border-transparent'}">
+                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl">` : (item.type === 'weapon' ? '⚔️' : item.type === 'material' ? '🧱' : '💰')}
+                     </div>
+                     <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-2 scale-125">
+                        ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] animate-pulse"></i>'.repeat(item.rarity)}
+                     </div>
+                </div>
+                <h2 class="text-5xl md:text-7xl font-fantasy mb-4 px-4 text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] mt-4 ${item.rarity >= 4 ? 'animate-pulse text-gradient-gold' : ''}">${item.name}</h2>
+                <p class="text-gray-300 text-xl mb-10 font-fantasy tracking-widest uppercase bg-black/50 px-6 py-2 rounded-full border border-white/10">${getItemTypeJA(item.type)} • ${item.description || (item.value ? `価値: ${item.value}G` : 'レアアイテム')}</p>
+                <button onclick="closeModal()" class="btn-primary px-16 py-5 text-2xl flex items-center gap-3 animate-bounce">
+                    <i data-lucide="check-circle" class="w-8 h-8"></i> GET!
+                </button>
+            </div>
+        `;
+        lucide.createIcons();
+    }, delay);
 }
 
 function closeModal() {
@@ -520,8 +736,11 @@ function verifyParentPin() {
                 </div>
 
                 <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1 pt-4">システム管理</h4>
-                <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2">
+                <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2 mb-2">
                     <i data-lucide="database"></i> アイテムデータベース編集
+                </button>
+                <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
+                    <i data-lucide="music"></i> 効果音設定
                 </button>
             </div>
         `;
@@ -539,6 +758,68 @@ function execAddGold() {
         alert("ゴールドを追加しました！");
         closeModal();
     }
+}
+
+function renderSoundManager() {
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-2xl rounded-xl shadow-2xl animate-fade-in-up">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-xl font-fantasy text-gold flex items-center gap-2"><i data-lucide="music"></i> 効果音設定 (URL)</h2>
+                    <button onclick="openParentMode();" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <p class="text-xs text-gray-400 mb-4">音声ファイルのURL（mp3, wavなど）を入力してください。空欄の場合はデフォルトの電子音が鳴ります。</p>
+
+                    ${createSoundInput('login', 'ログイン時の音（扉が開く音など）')}
+                    ${createSoundInput('transfer', '送金時の音（チャリンチャリン）')}
+                    ${createSoundInput('gachaPull', 'ガチャを引く時の音（溜め演出）')}
+                    ${createSoundInput('resultLow', 'ガチャ結果（低レア: ★1-2）')}
+                    ${createSoundInput('resultMid', 'ガチャ結果（中レア: ★3）')}
+                    ${createSoundInput('resultHigh', 'ガチャ結果（高レア: ★4-5）')}
+
+                    <div class="flex justify-end pt-4 border-t border-white/10">
+                        <button onclick="saveSoundUrls()" class="btn-primary px-8 py-2 rounded shadow-lg flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> 保存する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function createSoundInput(key, label) {
+    const val = state.soundSettings[key] || '';
+    return `
+        <div>
+            <label class="block text-sm text-gray-300 mb-1">${label}</label>
+            <div class="flex gap-2">
+                <input type="text" id="sound-${key}" value="${val}" placeholder="https://example.com/sound.mp3" class="flex-1 bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-gold outline-none">
+                <button onclick="testCustomSound('sound-${key}')" class="px-3 bg-gray-700 hover:bg-gray-600 rounded text-white" title="再生テスト">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function testCustomSound(inputId) {
+    const url = document.getElementById(inputId).value;
+    if (url) {
+        const audio = new Audio(url);
+        audio.play().catch(e => alert("再生エラー: URLが間違っているか、ブラウザでブロックされました。"));
+    }
+}
+
+function saveSoundUrls() {
+    const keys = ['login', 'transfer', 'gachaPull', 'resultLow', 'resultMid', 'resultHigh'];
+    keys.forEach(k => {
+        state.soundSettings[k] = document.getElementById(`sound-${k}`).value;
+    });
+    saveSoundSettings();
+    alert("効果音設定を保存しました！");
 }
 
 // --- Transfer Modal ---
@@ -580,11 +861,34 @@ function execTransfer() {
 
     const success = transferGold(target, amount);
     if(success) {
-        alert("送金しました！");
+        playSound('transfer');
+        playCoinShowerAnimation();
         closeModal();
     } else {
         alert("所持金が足りないか、エラーが発生しました");
     }
+}
+
+function playCoinShowerAnimation() {
+    const container = document.createElement('div');
+    container.className = "fixed inset-0 z-[100] pointer-events-none overflow-hidden";
+    document.body.appendChild(container);
+
+    const numCoins = 30;
+    for (let i = 0; i < numCoins; i++) {
+        const coin = document.createElement('div');
+        coin.innerHTML = '🪙';
+        coin.className = "absolute text-3xl animate-fall";
+        coin.style.left = `${Math.random() * 100}vw`;
+        coin.style.top = `-50px`;
+        coin.style.animationDuration = `${1 + Math.random() * 2}s`;
+        coin.style.animationDelay = `${Math.random() * 0.5}s`;
+        container.appendChild(coin);
+    }
+
+    setTimeout(() => {
+        document.body.removeChild(container);
+    }, 3000);
 }
 
 // --- Init ---
