@@ -160,8 +160,8 @@ function render() {
         const nav = document.createElement('div');
         nav.className = "flex justify-center mb-6 bg-rpg-dark/50 p-2 rounded-full border border-white/10 w-fit mx-auto backdrop-blur-sm";
         nav.innerHTML = `
-            <button onclick="setView('dashboard')" class="px-6 py-2 rounded-full transition-all text-sm font-bold uppercase tracking-wide ${state.view === 'dashboard' ? 'bg-gold text-black shadow-lg shadow-gold/20' : 'text-gray-400 hover:text-white'}">Dashboard</button>
-            <button onclick="setView('gacha')" class="px-6 py-2 rounded-full transition-all text-sm font-bold uppercase tracking-wide ${state.view === 'gacha' ? 'bg-gold text-black shadow-lg shadow-gold/20' : 'text-gray-400 hover:text-white'}">Summon</button>
+            <button onclick="setView('dashboard')" class="px-6 py-2 rounded-full transition-all text-sm font-bold uppercase tracking-wide ${state.view === 'dashboard' ? 'bg-gold text-black shadow-lg shadow-gold/20' : 'text-gray-400 hover:text-white'}">ステータス</button>
+            <button onclick="setView('gacha')" class="px-6 py-2 rounded-full transition-all text-sm font-bold uppercase tracking-wide ${state.view === 'gacha' ? 'bg-gold text-black shadow-lg shadow-gold/20' : 'text-gray-400 hover:text-white'}">ガチャ召喚</button>
         `;
         app.appendChild(nav);
 
@@ -183,10 +183,10 @@ function renderHeader() {
     const header = document.createElement('div');
     header.className = "flex justify-between items-center mb-8 border-b border-gold/20 pb-4";
     header.innerHTML = `
-        <h1 class="text-3xl font-fantasy text-gradient-gold tracking-wider drop-shadow-md">GACHA QUEST</h1>
+        <h1 class="text-3xl font-fantasy text-gradient-gold tracking-wider drop-shadow-md">ガチャRPG</h1>
         <div class="flex items-center gap-4">
             <span class="text-gold font-bold">${formatGold(state.currentUser.gold)}</span>
-            <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300 uppercase">Logout</button>
+            <button onclick="logout()" class="text-xs text-red-400 hover:text-red-300 uppercase">ログアウト</button>
         </div>
     `;
     app.appendChild(header);
@@ -205,19 +205,19 @@ function renderLogin() {
                 <div class="inline-block p-4 rounded-full bg-gradient-to-br from-gold-dark to-rpg-black border border-gold mb-4 shadow-lg shadow-gold/20">
                     <i data-lucide="sword" class="w-10 h-10 text-gold"></i>
                 </div>
-                <h2 class="text-3xl font-fantasy text-gradient-gold mb-2">${isRegistering ? 'Join the Guild' : 'Resume Quest'}</h2>
+                <h2 class="text-3xl font-fantasy text-gradient-gold mb-2">${isRegistering ? '冒険者登録' : '冒険を再開'}</h2>
             </div>
             <form id="auth-form" class="space-y-6">
-                <input id="auth-username" type="text" placeholder="Adventurer Name" class="block w-full px-4 py-3 border border-gray-700 rounded-lg bg-rpg-black/50 text-white focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all">
-                <input id="auth-password" type="password" placeholder="Secret Code" class="block w-full px-4 py-3 border border-gray-700 rounded-lg bg-rpg-black/50 text-white focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all">
+                <input id="auth-username" type="text" placeholder="勇者の名前 (ID)" class="block w-full px-4 py-3 border border-gray-700 rounded-lg bg-rpg-black/50 text-white focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all">
+                <input id="auth-password" type="password" placeholder="合言葉 (パスワード)" class="block w-full px-4 py-3 border border-gray-700 rounded-lg bg-rpg-black/50 text-white focus:ring-2 focus:ring-gold/50 focus:border-gold outline-none transition-all">
                 <p id="auth-error" class="text-red-400 text-sm text-center hidden"></p>
                 <button type="submit" class="w-full btn-primary py-3 flex justify-center items-center gap-2">
-                    ${isRegistering ? 'Begin Adventure' : 'Enter World'}
+                    ${isRegistering ? '冒険の書を作る' : '世界へ入る'}
                 </button>
             </form>
             <div class="mt-8 pt-6 border-t border-gray-800 text-center">
                 <button id="toggle-auth" class="text-gold hover:text-white transition-colors text-sm font-bold uppercase tracking-wide">
-                    ${isRegistering ? 'Login Instead' : 'Create Account'}
+                    ${isRegistering ? 'すでに登録済みの方はこちら' : '新しく始める方はこちら'}
                 </button>
             </div>
         </div>
@@ -233,14 +233,14 @@ function renderLogin() {
         const err = document.getElementById('auth-error');
 
         if(!u || !p) {
-            err.textContent = "Please fill all fields";
+            err.textContent = "全ての項目を入力してください";
             err.classList.remove('hidden');
             return;
         }
 
         const success = isRegistering ? register(u, p) : login(u, p);
         if (!success) {
-            err.textContent = isRegistering ? "Username taken" : "Invalid credentials";
+            err.textContent = isRegistering ? "その名前は使われています" : "IDかパスワードが違います";
             err.classList.remove('hidden');
         }
     };
@@ -274,25 +274,25 @@ function renderDashboard() {
                 </div>
             </div>
             <button onclick="openTransferModal()" class="flex items-center gap-2 px-4 py-2 bg-rpg-accent border border-gold/30 rounded-lg hover:bg-gold/10 hover:border-gold transition-all text-sm">
-                <i data-lucide="send" class="w-4 h-4 text-gold"></i> Transfer
+                <i data-lucide="send" class="w-4 h-4 text-gold"></i> 送金する
             </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div class="md:col-span-1 space-y-4">
                 <div class="bg-rpg-dark/60 rounded-xl p-4 border border-white/5">
-                    <h3 class="font-fantasy text-gold mb-4 text-lg border-b border-white/10 pb-2">Journal</h3>
+                    <h3 class="font-fantasy text-gold mb-4 text-lg border-b border-white/10 pb-2">冒険の記録</h3>
                     <div class="text-sm text-gray-400">
-                        <p class="mb-2 flex justify-between"><span>Items</span> <span class="text-white">${inventory.length}</span></p>
-                        <p class="mb-2 flex justify-between"><span>History</span> <span class="text-white">${history.length}</span></p>
+                        <p class="mb-2 flex justify-between"><span>獲得アイテム数</span> <span class="text-white">${inventory.length}</span></p>
+                        <p class="mb-2 flex justify-between"><span>ガチャ履歴数</span> <span class="text-white">${history.length}</span></p>
                     </div>
                 </div>
             </div>
             <div class="md:col-span-2">
                 <div class="bg-rpg-dark/60 rounded-xl p-6 border border-white/5 min-h-[400px]">
-                    <h3 class="font-fantasy text-2xl text-white mb-6 border-b border-white/10 pb-4">Inventory</h3>
+                    <h3 class="font-fantasy text-2xl text-white mb-6 border-b border-white/10 pb-4">持ち物リスト</h3>
                     <div class="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                        ${inventory.length === 0 ? '<div class="text-center text-gray-500 py-12">No items yet.</div>' : inventory.map(item => `
+                        ${inventory.length === 0 ? '<div class="text-center text-gray-500 py-12">まだ何も持っていません。ガチャを引こう！</div>' : inventory.map(item => `
                             <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors">
                                 <div class="w-12 h-12 rounded flex items-center justify-center text-xl shadow-lg ${getRarityGradient(item.rarity)}">
                                     ${item.type === 'weapon' ? '⚔️' : item.type === 'material' ? '🧱' : '💰'}
@@ -300,7 +300,7 @@ function renderDashboard() {
                                 <div class="flex-1">
                                     <div class="flex justify-between items-start">
                                         <h4 class="font-bold ${item.rarity >= 4 ? 'text-gold' : 'text-gray-200'}">${item.name}</h4>
-                                        <span class="text-xs text-gray-500 uppercase tracking-wider">${item.type}</span>
+                                        <span class="text-xs text-gray-500 uppercase tracking-wider">${getItemTypeJA(item.type)}</span>
                                     </div>
                                     <div class="flex gap-1 mt-1 text-yellow-400 text-xs">
                                         ${'★'.repeat(item.rarity)}
@@ -317,6 +317,13 @@ function renderDashboard() {
     app.appendChild(dash);
 }
 
+function getItemTypeJA(type) {
+    if (type === 'weapon') return '武器';
+    if (type === 'material') return '素材';
+    if (type === 'gold') return '財宝';
+    return type;
+}
+
 function getRarityGradient(rarity) {
     if (rarity === 5) return 'bg-gradient-to-br from-yellow-400 to-orange-600 border-2 border-yellow-300';
     if (rarity === 4) return 'bg-gradient-to-br from-purple-400 to-indigo-600 border-2 border-purple-300';
@@ -329,11 +336,11 @@ function renderGachaScene() {
     scene.className = "w-full max-w-6xl mx-auto flex flex-col items-center justify-center min-h-[60vh]";
 
     scene.innerHTML = `
-        <h2 class="text-4xl font-fantasy text-gradient-gold mb-12 text-center drop-shadow-lg animate-pulse">Choose Your Destiny</h2>
+        <h2 class="text-4xl font-fantasy text-gradient-gold mb-12 text-center drop-shadow-lg animate-pulse">運命を選べ</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full px-4">
-            ${renderGachaCard('Weapon', 'weapon', 'sword', 'red-500', 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop')}
-            ${renderGachaCard('Material', 'material', 'hammer', 'blue-500', 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop')}
-            ${renderGachaCard('Gold', 'gold', 'coins', 'yellow-500', 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop')}
+            ${renderGachaCard('武器ガチャ', 'weapon', 'sword', 'red-500', 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop')}
+            ${renderGachaCard('素材ガチャ', 'material', 'hammer', 'blue-500', 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop')}
+            ${renderGachaCard('ゴールドガチャ', 'gold', 'coins', 'yellow-500', 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop')}
         </div>
     `;
     app.appendChild(scene);
@@ -360,7 +367,7 @@ function renderGachaCard(title, type, icon, color, imgUrl) {
 
 function startGacha(type) {
     if (state.currentUser.gold < 100) {
-        alert("Not enough gold!");
+        alert("ゴールドが足りません！");
         return;
     }
 
@@ -369,7 +376,7 @@ function startGacha(type) {
     modalContainer.innerHTML = `
         <div class="flex flex-col items-center">
             <div class="w-32 h-32 rounded-full border-4 border-t-transparent border-gold mb-8 animate-spin"></div>
-            <h2 class="text-3xl font-fantasy text-gradient-gold tracking-widest uppercase animate-pulse">Summoning...</h2>
+            <h2 class="text-3xl font-fantasy text-gradient-gold tracking-widest uppercase animate-pulse">召喚中...</h2>
         </div>
     `;
 
@@ -392,9 +399,9 @@ function renderGachaResult(item) {
                  </div>
             </div>
             <h2 class="text-4xl md:text-6xl font-fantasy mb-4 px-4 text-white drop-shadow-xl ${item.rarity === 5 ? 'animate-pulse text-gold' : ''}">${item.name}</h2>
-            <p class="text-gray-400 text-lg mb-8 font-fantasy tracking-widest uppercase">${item.type} • ${item.description || (item.value ? `Value: ${item.value}G` : 'Rare Item')}</p>
+            <p class="text-gray-400 text-lg mb-8 font-fantasy tracking-widest uppercase">${getItemTypeJA(item.type)} • ${item.description || (item.value ? `価値: ${item.value}G` : 'レアアイテム')}</p>
             <button onclick="closeModal()" class="btn-primary px-12 py-4 text-xl flex items-center gap-2">
-                <i data-lucide="x" class="w-6 h-6"></i> Close
+                <i data-lucide="x" class="w-6 h-6"></i> 閉じる
             </button>
         </div>
     `;
@@ -427,16 +434,16 @@ function openParentMode() {
     modalContainer.innerHTML = `
         <div class="bg-rpg-dark border border-gold/40 p-6 rounded-lg shadow-2xl w-80 animate-fade-in-up">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-fantasy text-gold">Guardian Vault</h3>
+                <h3 class="text-lg font-fantasy text-gold">保護者モード</h3>
                 <button onclick="closeModal()" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <div id="parent-content">
-                <input type="password" id="parent-pin" placeholder="PIN" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white mb-2">
-                <button onclick="verifyParentPin()" class="w-full bg-gold/20 text-gold border border-gold/50 rounded py-2">Access</button>
+                <input type="password" id="parent-pin" placeholder="暗証番号 (PIN)" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white mb-2">
+                <button onclick="verifyParentPin()" class="w-full bg-gold/20 text-gold border border-gold/50 rounded py-2">認証</button>
             </div>
         </div>
     `;
-    // We store options for later use if needed, but here we re-render the select inside verify success
+    // We store options for later use if needed
     window.tempUserOptions = userOptions;
     lucide.createIcons();
 }
@@ -448,15 +455,15 @@ function verifyParentPin() {
         content.innerHTML = `
             <div class="space-y-4">
                 <select id="parent-user-select" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
-                    <option value="">Select Hero</option>
+                    <option value="">対象の冒険者を選択</option>
                     ${window.tempUserOptions}
                 </select>
                 <input type="number" id="parent-amount" value="500" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
-                <button onclick="execAddGold()" class="w-full btn-primary py-2">Add Gold</button>
+                <button onclick="execAddGold()" class="w-full btn-primary py-2">ゴールドを追加</button>
             </div>
         `;
     } else {
-        alert("Incorrect PIN");
+        alert("暗証番号が違います");
     }
 }
 
@@ -465,7 +472,7 @@ function execAddGold() {
     const amount = parseInt(document.getElementById('parent-amount').value);
     if(uid && amount) {
         addGold(uid, amount);
-        alert("Gold Added!");
+        alert("ゴールドを追加しました！");
         closeModal();
     }
 }
@@ -478,22 +485,22 @@ function openTransferModal() {
     modalContainer.innerHTML = `
         <div class="bg-rpg-dark border border-gold/40 w-full max-w-md p-6 rounded-xl shadow-2xl animate-fade-in-up">
             <div class="flex justify-between items-center mb-6">
-                 <h2 class="text-2xl font-fantasy text-gold flex items-center gap-2"><i data-lucide="send"></i> Send Gold</h2>
+                 <h2 class="text-2xl font-fantasy text-gold flex items-center gap-2"><i data-lucide="send"></i> 送金</h2>
                  <button onclick="closeModal()" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">Recipient</label>
+                    <label class="block text-sm text-gray-400 mb-1">送り先</label>
                     <select id="transfer-target" class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white outline-none focus:border-gold">
-                        <option value="">Select Adventurer...</option>
+                        <option value="">冒険者を選択...</option>
                         ${others.map(u => `<option value="${u.id}">${u.username}</option>`).join('')}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm text-gray-400 mb-1">Amount</label>
+                    <label class="block text-sm text-gray-400 mb-1">金額 (G)</label>
                     <input type="number" id="transfer-amount" class="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-white outline-none focus:border-gold" placeholder="0">
                 </div>
-                <button onclick="execTransfer()" class="w-full btn-primary mt-4">Confirm Transfer</button>
+                <button onclick="execTransfer()" class="w-full btn-primary mt-4">決定</button>
             </div>
         </div>
     `;
@@ -504,15 +511,15 @@ function execTransfer() {
     const target = document.getElementById('transfer-target').value;
     const amount = parseInt(document.getElementById('transfer-amount').value);
 
-    if(!target) return alert("Select recipient");
-    if(!amount || amount <= 0) return alert("Invalid amount");
+    if(!target) return alert("送り先を選んでください");
+    if(!amount || amount <= 0) return alert("金額が正しくありません");
 
     const success = transferGold(target, amount);
     if(success) {
-        alert("Sent!");
+        alert("送金しました！");
         closeModal();
     } else {
-        alert("Insufficient funds or error.");
+        alert("所持金が足りないか、エラーが発生しました");
     }
 }
 
