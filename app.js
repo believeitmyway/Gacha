@@ -193,28 +193,31 @@ function saveLogoSetting() {
 }
 
 function initializeMasterData() {
+    let masterItemsLoaded = false;
     const saved = localStorage.getItem(STORAGE_KEY_MASTER);
     if (saved) {
         try {
             state.masterItems = JSON.parse(saved);
-            return;
+            masterItemsLoaded = true;
         } catch (e) {
             console.error("Failed to load master data", e);
         }
     }
 
-    // Default initialization from items.js globals
-    // Assign default weights if missing
-    const assignWeight = (items) => items.map(i => ({
-        ...i,
-        weight: (i.weight !== undefined) ? i.weight : getDefaultWeight(i.rarity)
-    }));
+    if (!masterItemsLoaded) {
+        // Default initialization from items.js globals
+        // Assign default weights if missing
+        const assignWeight = (items) => items.map(i => ({
+            ...i,
+            weight: (i.weight !== undefined) ? i.weight : getDefaultWeight(i.rarity)
+        }));
 
-    state.masterItems = {
-        weapon: assignWeight(typeof WEAPON_POOL !== 'undefined' ? WEAPON_POOL : []),
-        material: assignWeight(typeof MATERIAL_POOL !== 'undefined' ? MATERIAL_POOL : []),
-        gold: assignWeight(typeof GOLD_POOL !== 'undefined' ? GOLD_POOL : [])
-    };
+        state.masterItems = {
+            weapon: assignWeight(typeof WEAPON_POOL !== 'undefined' ? WEAPON_POOL : []),
+            material: assignWeight(typeof MATERIAL_POOL !== 'undefined' ? MATERIAL_POOL : []),
+            gold: assignWeight(typeof GOLD_POOL !== 'undefined' ? GOLD_POOL : [])
+        };
+    }
 
     const savedGachas = localStorage.getItem(STORAGE_KEY_GACHAS);
     if (savedGachas) {
