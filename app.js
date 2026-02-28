@@ -82,41 +82,60 @@ function playSound(type) {
             setTimeout(() => playTone(2000, 'sine', 0.3, 0.4), 200);
             break;
         case 'gachaPull':
-            // Charging up
+            // Intense Charging up
             if(audioCtx) {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 2.0);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.5, audioCtx.currentTime + 2.0);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 2.0);
+                // Main rise
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(50, audioCtx.currentTime);
+                osc1.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 2.0);
+                gain1.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain1.gain.linearRampToValueAtTime(0.6, audioCtx.currentTime + 2.0);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start();
+                osc1.stop(audioCtx.currentTime + 2.0);
+
+                // Sub rumble
+                const osc2 = audioCtx.createOscillator();
+                const gain2 = audioCtx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(40, audioCtx.currentTime);
+                osc2.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 2.0);
+                gain2.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gain2.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 2.0);
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc2.start();
+                osc2.stop(audioCtx.currentTime + 2.0);
             }
             break;
         case 'resultLow':
-            // Simple pop
-            playTone(400, 'sine', 0.1);
-            setTimeout(() => playTone(600, 'sine', 0.2), 100);
+            // Brighter pop
+            playTone(400, 'sine', 0.1, 0.6);
+            setTimeout(() => playTone(600, 'sine', 0.2, 0.6), 100);
             break;
         case 'resultMid':
             // Happy arpeggio
-            playTone(440, 'triangle', 0.1);
-            setTimeout(() => playTone(554, 'triangle', 0.1), 100);
-            setTimeout(() => playTone(659, 'triangle', 0.1), 200);
-            setTimeout(() => playTone(880, 'triangle', 0.4), 300);
+            playTone(440, 'triangle', 0.1, 0.6);
+            setTimeout(() => playTone(554, 'triangle', 0.1, 0.6), 100);
+            setTimeout(() => playTone(659, 'triangle', 0.1, 0.6), 200);
+            setTimeout(() => playTone(880, 'triangle', 0.4, 0.6), 300);
             break;
         case 'resultHigh':
-            // Epic fanfare
-            playTone(523.25, 'square', 0.2, 0.4); // C5
-            setTimeout(() => playTone(523.25, 'square', 0.2, 0.4), 200);
-            setTimeout(() => playTone(523.25, 'square', 0.2, 0.4), 400);
-            setTimeout(() => playTone(659.25, 'square', 0.6, 0.4), 600); // E5
-            setTimeout(() => playTone(587.33, 'square', 0.4, 0.4), 1200); // D5
-            setTimeout(() => playTone(783.99, 'square', 1.5, 0.5), 1600); // G5
+            // Huge Boom followed by Epic Fanfare
+            playTone(50, 'sawtooth', 1.0, 1.0); // Big drop impact
+            playTone(100, 'square', 0.5, 0.8);
+
+            setTimeout(() => {
+                playTone(523.25, 'square', 0.2, 0.5); // C5
+                setTimeout(() => playTone(523.25, 'square', 0.2, 0.5), 150);
+                setTimeout(() => playTone(523.25, 'square', 0.2, 0.5), 300);
+                setTimeout(() => playTone(659.25, 'square', 0.6, 0.6), 450); // E5
+                setTimeout(() => playTone(587.33, 'square', 0.4, 0.5), 900); // D5
+                setTimeout(() => playTone(783.99, 'square', 1.5, 0.7), 1200); // G5
+            }, 300); // Delay fanfare slightly after the boom
             break;
     }
 }
@@ -618,20 +637,39 @@ function startGacha(type) {
 
     playSound('gachaPull');
 
+    // Pull the item immediately so we know its rarity and can adjust the animation intensity
+    const item = pullGacha(type);
+    if (!item) return;
+
+    // Adjust shake intensity and colors based on rarity
+    const isHighRarity = item.rarity >= 4;
+    const isMaxRarity = item.rarity === 5;
+
+    let ringColor = isMaxRarity ? 'border-t-yellow-300 border-r-yellow-500 shadow-[0_0_100px_rgba(253,224,71,1)]'
+                  : isHighRarity ? 'border-t-purple-400 border-r-purple-600 shadow-[0_0_80px_rgba(192,132,252,0.8)]'
+                  : 'border-t-gold border-r-gold-dark shadow-[0_0_50px_rgba(255,215,0,0.5)]';
+
+    let shakeAnimation = isHighRarity ? 'animate-shake-intense' : 'animate-shake';
+    let spinSpeed = isHighRarity ? 'animate-spin-fast' : 'animate-[spin_0.5s_linear_infinite]';
+    let bgColor = isHighRarity ? 'from-purple-900/40 via-black to-black' : 'from-gold/20 via-black to-black';
+
     // Show Loading with flashy effects
     modalContainer.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto overflow-hidden";
     modalContainer.innerHTML = `
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold/20 via-black to-black animate-pulse"></div>
-        <div class="flex flex-col items-center relative z-10 animate-shake" style="animation-duration: 0.5s; animation-iteration-count: infinite;">
-            <div class="w-40 h-40 rounded-full border-8 border-t-gold border-r-gold-dark border-b-transparent border-l-transparent mb-8 animate-[spin_0.5s_linear_infinite] shadow-[0_0_50px_rgba(255,215,0,0.5)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${bgColor} animate-pulse"></div>
+        <div class="flex flex-col items-center relative z-10 ${shakeAnimation}">
+            <div class="w-40 h-40 rounded-full border-8 ${ringColor} border-b-transparent border-l-transparent mb-8 ${spinSpeed}"></div>
             <h2 class="text-5xl font-fantasy text-gradient-gold tracking-widest uppercase drop-shadow-[0_0_15px_rgba(255,215,0,0.8)]">召喚中...</h2>
         </div>
     `;
 
+    // Wait for the charge up sound to almost finish, then show result
+    // High rarity gets a slightly longer charge up
+    const delay = isMaxRarity ? 2500 : isHighRarity ? 2200 : 1800;
+
     setTimeout(() => {
-        const item = pullGacha(type);
-        if(item) renderGachaResult(item);
-    }, 2000); // Wait for the charge up sound to almost finish
+        renderGachaResult(item);
+    }, delay);
 }
 
 function renderGachaResult(item) {
@@ -639,59 +677,129 @@ function renderGachaResult(item) {
     let shakeClass = '';
     let particles = '';
     let soundType = 'resultLow';
+    let extraEffects = '';
+
+    // Check if it's a new item (not in history before this pull, which means inventory count is 1 for this id if non-gold)
+    const isNewItem = item.type !== 'gold' && state.currentUser.inventory.filter(i => i.id === item.id).length === 1;
 
     // Determine effects based on rarity
-    if (item.rarity >= 4) {
-        delay = 2000; // Build-up delay for high rarity
+    if (item.rarity === 5) {
+        delay = 2500;
+        shakeClass = 'animate-shake-intense';
+        soundType = 'resultHigh';
+
+        // Massive golden particles + confetti + expanding ripple
+        for(let i=0; i<80; i++) {
+            const tx = (Math.random() - 0.5) * 800;
+            const ty = (Math.random() - 0.5) * 800;
+            const size = Math.random() * 6 + 4;
+            particles += `<div class="absolute top-1/2 left-1/2 rounded-full bg-yellow-300 shadow-[0_0_15px_#fde047] opacity-0" style="width: ${size}px; height: ${size}px; --tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; animation-delay: ${delay/1000}s;"></div>`;
+        }
+
+        for(let i=0; i<40; i++) {
+            const left = Math.random() * 100;
+            const animDuration = Math.random() * 2 + 2;
+            const animDelay = Math.random() * 1;
+            const colors = ['bg-yellow-400', 'bg-yellow-200', 'bg-red-500', 'bg-orange-500'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            extraEffects += `<div class="fixed top-0 w-3 h-8 ${color} opacity-0" style="left: ${left}vw; animation: confetti-fall ${animDuration}s linear forwards; animation-delay: ${(delay/1000) + animDelay}s;"></div>`;
+        }
+
+        extraEffects += `<div class="absolute inset-0 border-[20px] border-yellow-400 rounded-full opacity-0 pointer-events-none" style="animation: ripple 1.5s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+
+    } else if (item.rarity === 4) {
+        delay = 1800;
         shakeClass = 'animate-shake';
         soundType = 'resultHigh';
 
-        // Generate intense particles
+        // Intense purple/pink particles
         for(let i=0; i<50; i++) {
-            const tx = (Math.random() - 0.5) * 500;
-            const ty = (Math.random() - 0.5) * 500;
-            const color = item.rarity === 5 ? 'bg-yellow-300' : 'bg-purple-400';
-            particles += `<div class="absolute top-1/2 left-1/2 w-3 h-3 rounded-full ${color} shadow-[0_0_10px_currentColor] opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1.5s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+            const tx = (Math.random() - 0.5) * 600;
+            const ty = (Math.random() - 0.5) * 600;
+            const size = Math.random() * 4 + 3;
+            particles += `<div class="absolute top-1/2 left-1/2 rounded-full bg-purple-400 shadow-[0_0_10px_#c084fc] opacity-0" style="width: ${size}px; height: ${size}px; --tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1.5s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
         }
+
+        extraEffects += `<div class="absolute inset-0 border-[10px] border-purple-500 rounded-full opacity-0 pointer-events-none" style="animation: ripple 1s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+
     } else if (item.rarity === 3) {
         delay = 500;
         soundType = 'resultMid';
-        // Moderate particles
-        for(let i=0; i<20; i++) {
-            const tx = (Math.random() - 0.5) * 300;
-            const ty = (Math.random() - 0.5) * 300;
-            particles += `<div class="absolute top-1/2 left-1/2 w-2 h-2 rounded-full bg-blue-300 shadow-[0_0_5px_currentColor] opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+        // Moderate blue particles
+        for(let i=0; i<30; i++) {
+            const tx = (Math.random() - 0.5) * 400;
+            const ty = (Math.random() - 0.5) * 400;
+            particles += `<div class="absolute top-1/2 left-1/2 w-2 h-2 rounded-full bg-blue-300 shadow-[0_0_5px_#93c5fd] opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 1s ease-out forwards; animation-delay: ${delay/1000}s;"></div>`;
+        }
+    } else {
+        // Simple pop for 1-2
+        for(let i=0; i<15; i++) {
+            const tx = (Math.random() - 0.5) * 200;
+            const ty = (Math.random() - 0.5) * 200;
+            particles += `<div class="absolute top-1/2 left-1/2 w-1.5 h-1.5 rounded-full bg-gray-300 opacity-0" style="--tx: ${tx}px; --ty: ${ty}px; animation: particle-burst 0.6s ease-out forwards; animation-delay: 0s;"></div>`;
         }
     }
 
     // Pre-result suspense for high rarity
     if (delay > 0) {
+        const ringColor = item.rarity === 5 ? 'border-yellow-400 shadow-[0_0_150px_rgba(250,204,21,1)]' : 'border-purple-500 shadow-[0_0_100px_rgba(168,85,247,1)]';
+
         modalContainer.innerHTML = `
-            <div class="fixed inset-0 bg-white/20 animate-pulse flex items-center justify-center ${shakeClass}">
-                 <div class="w-20 h-20 rounded-full bg-white shadow-[0_0_100px_rgba(255,255,255,1)] animate-ping"></div>
+            <div class="fixed inset-0 bg-white/10 animate-pulse flex items-center justify-center ${shakeClass}">
+                 <div class="w-1 h-1 rounded-full bg-white shadow-[0_0_100px_rgba(255,255,255,1)] animate-ping" style="animation-duration: 0.3s"></div>
+                 <div class="absolute w-32 h-32 rounded-full border-4 ${ringColor} animate-ping" style="animation-duration: 0.8s"></div>
             </div>
+            ${item.rarity >= 4 ? `<div class="fixed inset-0 bg-white z-50 pointer-events-none" style="animation: flash 0.5s ease-in-out forwards; animation-delay: ${(delay - 200)/1000}s; opacity: 0;"></div>` : ''}
         `;
     }
 
     setTimeout(() => {
         playSound(soundType);
 
-        modalContainer.className = `fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto ${shakeClass}`;
+        const gradientBg = item.rarity === 5 ? 'from-yellow-600/50 via-red-900/30 to-black' :
+                           item.rarity === 4 ? 'from-purple-600/40 via-blue-900/30 to-black' :
+                           'from-gold/30 to-black';
+
+        const cardGlow = item.rarity === 5 ? 'shadow-[0_0_200px_rgba(250,204,21,0.8)]' :
+                         item.rarity === 4 ? 'shadow-[0_0_150px_rgba(192,132,252,0.8)]' :
+                         'shadow-[0_0_50px_rgba(255,215,0,0.4)]';
+
+        const starAnimation = item.rarity >= 4 ? 'animate-pulse scale-125' : 'scale-100';
+
+        modalContainer.className = `fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-xl pointer-events-auto`;
         modalContainer.innerHTML = `
-            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-gold/30 to-black pointer-events-none ${item.rarity >= 4 ? 'animate-pulse' : ''}"></div>
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] ${gradientBg} pointer-events-none ${item.rarity >= 4 ? 'animate-pulse' : ''}"></div>
             ${particles}
-            <div class="relative z-10 flex flex-col items-center text-center animate-bounce-in transform scale-110">
-                <div class="mb-8 relative">
-                     <div class="w-56 h-56 rounded-2xl flex items-center justify-center text-8xl shadow-[0_0_150px_rgba(255,215,0,0.6)] ${getRarityGradient(item.rarity)} border-4 ${item.rarity >= 4 ? 'border-yellow-200' : 'border-transparent'}">
-                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-24 h-24 text-white"></i>`}
+            ${extraEffects}
+
+            <div class="relative z-10 flex flex-col items-center text-center animate-zoom-in">
+                ${isNewItem ? `
+                    <div class="absolute -top-12 bg-red-600 text-white font-black px-6 py-2 rounded-full border-4 border-yellow-400 transform -rotate-12 shadow-[0_0_20px_rgba(220,38,38,1)] z-20 animate-bounce" style="letter-spacing: 0.2em;">
+                        NEW!
+                    </div>
+                ` : ''}
+
+                <div class="mb-12 relative group">
+                     <div class="w-64 h-64 rounded-2xl flex items-center justify-center text-8xl ${cardGlow} ${getRarityGradient(item.rarity)} border-4 ${item.rarity >= 4 ? 'border-yellow-200' : 'border-gray-500'} relative overflow-hidden">
+                        <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        ${item.rarity >= 4 ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent -translate-x-full animate-[shine_2s_infinite]"></div>` : ''}
+                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl shadow-inner">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-32 h-32 text-white drop-shadow-2xl"></i>`}
                      </div>
-                     <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-2 scale-125">
-                        ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] animate-pulse"></i>'.repeat(item.rarity)}
+                     <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-2 ${starAnimation} bg-black/50 px-6 py-2 rounded-full backdrop-blur-md border border-yellow-500/30">
+                        ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,1)]"></i>'.repeat(item.rarity)}
                      </div>
                 </div>
-                <h2 class="text-5xl md:text-7xl font-fantasy mb-4 px-4 text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] mt-4 ${item.rarity >= 4 ? 'animate-pulse text-gradient-gold' : ''}">${item.name}</h2>
-                <p class="text-gray-300 text-xl mb-10 font-fantasy tracking-widest uppercase bg-black/50 px-6 py-2 rounded-full border border-white/10">${getItemTypeJA(item.type)} • ${item.description || (item.value ? `価値: ${item.value}G` : 'レアアイテム')}</p>
-                <button onclick="closeModal()" class="btn-primary px-16 py-5 text-2xl flex items-center gap-3 animate-bounce">
+
+                <div class="bg-black/60 p-6 rounded-2xl border border-white/10 backdrop-blur-md shadow-2xl max-w-2xl w-full mx-4 mb-10 transform transition-transform hover:scale-105">
+                    <h2 class="text-4xl md:text-6xl font-fantasy mb-4 text-white drop-shadow-[0_5px_5px_rgba(0,0,0,1)] ${item.rarity === 5 ? 'animate-pulse text-gradient-gold' : item.rarity === 4 ? 'text-purple-300' : ''}">${item.name}</h2>
+                    <p class="text-gray-300 text-lg md:text-xl font-fantasy tracking-widest bg-black/50 px-6 py-3 rounded-xl border border-white/5 inline-block">
+                        <span class="text-gold uppercase">${getItemTypeJA(item.type)}</span>
+                        <span class="mx-2 opacity-50">|</span>
+                        ${item.description || (item.value ? `価値: <span class="text-yellow-400 font-bold">${item.value}G</span>` : 'レアアイテム')}
+                    </p>
+                </div>
+
+                <button onclick="closeModal()" class="btn-primary px-16 py-5 text-2xl flex items-center gap-3 animate-bounce hover:scale-110 transition-transform shadow-[0_10px_30px_rgba(255,215,0,0.3)]">
                     <i data-lucide="check-circle" class="w-8 h-8"></i> GET!
                 </button>
             </div>
