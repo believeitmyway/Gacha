@@ -223,14 +223,20 @@ function initializeMasterData() {
     if (savedGachas) {
         try {
             state.masterGachas = JSON.parse(savedGachas);
+            // Ensure cost exists for loaded gachas
+            state.masterGachas.forEach(g => {
+                if (g.cost === undefined) {
+                    g.cost = GACHA_COST;
+                }
+            });
         } catch (e) {
             console.error("Failed to load master gachas", e);
         }
     } else {
         state.masterGachas = [
-            { id: 'weapon', name: '武器ガチャ', icon: 'sword', color: 'red-500', image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop' },
-            { id: 'material', name: '素材ガチャ', icon: 'hammer', color: 'blue-500', image: 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop' },
-            { id: 'gold', name: 'ゴールドガチャ', icon: 'coins', color: 'yellow-500', image: 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop' }
+            { id: 'weapon', name: '武器ガチャ', icon: 'sword', color: 'red-500', image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop', cost: GACHA_COST },
+            { id: 'material', name: '素材ガチャ', icon: 'hammer', color: 'blue-500', image: 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop', cost: GACHA_COST },
+            { id: 'gold', name: 'ゴールドガチャ', icon: 'coins', color: 'yellow-500', image: 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop', cost: GACHA_COST }
         ];
         saveMasterGachas();
     }
@@ -353,8 +359,8 @@ function logout() {
     render();
 }
 
-function pullGacha(type) {
-    if (!state.currentUser || state.currentUser.gold < GACHA_COST) return null;
+function pullGacha(type, cost) {
+    if (!state.currentUser || state.currentUser.gold < cost) return null;
 
     // Select Pool
     let pool = state.masterItems[type] || [];
@@ -381,7 +387,7 @@ function pullGacha(type) {
     if (!item) item = pool[0];
 
     // Update User
-    state.currentUser.gold -= GACHA_COST;
+    state.currentUser.gold -= cost;
 
     // Add item or value
     if (type === 'gold' && item.value) {
@@ -626,13 +632,13 @@ function renderGachaScene() {
     scene.innerHTML = `
         <h2 class="text-4xl font-fantasy text-gradient-gold mb-12 text-center drop-shadow-lg animate-pulse">運命を選べ</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full px-4">
-            ${state.masterGachas.map(g => renderGachaCard(g.name, g.id, g.icon || 'star', g.color || 'gold', g.image || '')).join('')}
+            ${state.masterGachas.map(g => renderGachaCard(g.name, g.id, g.icon || 'star', g.color || 'gold', g.image || '', g.cost ?? GACHA_COST)).join('')}
         </div>
     `;
     app.appendChild(scene);
 }
 
-function renderGachaCard(title, type, icon, color, imgUrl) {
+function renderGachaCard(title, type, icon, color, imgUrl, cost) {
     // Note: Tailwind arbitrary values used for dynamic colors might need safelisting if purged,
     // but since we use CDN tailwind, it parses DOM at runtime, so it works!
     return `
@@ -644,7 +650,7 @@ function renderGachaCard(title, type, icon, color, imgUrl) {
                 </div>
                 <h3 class="text-2xl font-fantasy text-white mb-2">${title}</h3>
                 <div class="mt-auto px-6 py-2 bg-black/60 rounded-full border border-${color}/50 text-${color} font-bold flex items-center gap-2">
-                    <i data-lucide="coins" class="w-4 h-4"></i> 100 G
+                    <i data-lucide="coins" class="w-4 h-4"></i> ${cost} G
                 </div>
             </div>
         </button>
@@ -652,7 +658,10 @@ function renderGachaCard(title, type, icon, color, imgUrl) {
 }
 
 function startGacha(type) {
-    if (state.currentUser.gold < 100) {
+    const gachaDef = state.masterGachas.find(g => g.id === type);
+    const cost = gachaDef && gachaDef.cost !== undefined ? gachaDef.cost : GACHA_COST;
+
+    if (state.currentUser.gold < cost) {
         alert("ゴールドが足りません！");
         return;
     }
@@ -660,7 +669,7 @@ function startGacha(type) {
     playSound('gachaPull');
 
     // Pull the item immediately so we know its rarity and can adjust the animation intensity
-    const item = pullGacha(type);
+    const item = pullGacha(type, cost);
     if (!item) return;
 
     // Adjust shake intensity and colors based on rarity
@@ -1372,6 +1381,7 @@ function renderGachaManager() {
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-white truncate text-lg">${g.name}</span>
                                     <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${g.id}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gold/20 text-gold border border-gold/30">${g.cost ?? GACHA_COST} G</span>
                                 </div>
                             </div>
 
@@ -1413,7 +1423,8 @@ function openGachaEditor(id) {
         name: '',
         icon: 'star',
         color: 'white',
-        image: ''
+        image: '',
+        cost: GACHA_COST
     };
 
     const isNew = !id;
@@ -1439,13 +1450,18 @@ function openGachaEditor(id) {
                             ${isNew ? '<p class="text-[10px] text-gray-500 mt-1">※作成後に変更することはできません</p>' : ''}
                         </div>
 
-                        <div>
+                        <div class="col-span-2 md:col-span-1">
                             <label class="block text-xs text-gray-500 mb-1">アイコン (Lucideアイコン名)</label>
                             <input type="text" id="edit-gacha-icon" value="${gacha.icon}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: shield">
                             <p class="text-[10px] text-gray-500 mt-1"><a href="https://lucide.dev/icons/" target="_blank" class="text-blue-400 hover:underline">アイコン一覧はこちら</a></p>
                         </div>
 
-                        <div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-xs text-gray-500 mb-1">消費ゴールド</label>
+                            <input type="number" id="edit-gacha-cost" value="${gacha.cost !== undefined ? gacha.cost : GACHA_COST}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: 100">
+                        </div>
+
+                        <div class="col-span-2">
                             <label class="block text-xs text-gray-500 mb-1">テーマカラー (Tailwind色指定)</label>
                             <input type="text" id="edit-gacha-color" value="${gacha.color}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: green-500">
                         </div>
@@ -1473,15 +1489,17 @@ function saveGacha(oldId, isNew) {
     const icon = document.getElementById('edit-gacha-icon').value || 'star';
     const color = document.getElementById('edit-gacha-color').value || 'white';
     const image = document.getElementById('edit-gacha-image').value;
+    const cost = parseInt(document.getElementById('edit-gacha-cost').value, 10);
 
     if (!name || !id) return alert("ガチャ名とIDは必須です");
     if (!/^[a-zA-Z0-9_]+$/.test(id)) return alert("IDは半角英数字とアンダースコアのみ使用できます");
+    if (isNaN(cost) || cost < 0) return alert("消費ゴールドは0以上の数値を入力してください");
 
     if (isNew && state.masterGachas.some(g => g.id === id)) {
         return alert("このIDは既に使われています");
     }
 
-    const newGacha = { id, name, icon, color, image };
+    const newGacha = { id, name, icon, color, image, cost };
 
     if (isNew) {
         state.masterGachas.push(newGacha);
