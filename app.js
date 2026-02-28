@@ -6,6 +6,7 @@ const INITIAL_GOLD = 500;
 const GACHA_COST = 100;
 const STORAGE_KEY = 'gacha_rpg_vanilla';
 const STORAGE_KEY_MASTER = 'gacha_rpg_master_items';
+const STORAGE_KEY_GACHAS = 'gacha_rpg_master_gachas';
 
 // Simple State
 let state = {
@@ -14,6 +15,7 @@ let state = {
     view: 'login', // 'login', 'dashboard', 'gacha'
     modal: null, // 'parentMode', 'transfer', 'gachaResult'
     masterItems: { weapon: [], material: [], gold: [] },
+    masterGachas: [],
     soundSettings: {
         login: '',
         transfer: '',
@@ -180,6 +182,28 @@ function initializeMasterData() {
         gold: assignWeight(typeof GOLD_POOL !== 'undefined' ? GOLD_POOL : [])
     };
 
+    const savedGachas = localStorage.getItem(STORAGE_KEY_GACHAS);
+    if (savedGachas) {
+        try {
+            state.masterGachas = JSON.parse(savedGachas);
+        } catch (e) {
+            console.error("Failed to load master gachas", e);
+        }
+    } else {
+        state.masterGachas = [
+            { id: 'weapon', name: '武器ガチャ', icon: 'sword', color: 'red-500', image: 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop' },
+            { id: 'material', name: '素材ガチャ', icon: 'hammer', color: 'blue-500', image: 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop' },
+            { id: 'gold', name: 'ゴールドガチャ', icon: 'coins', color: 'yellow-500', image: 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop' }
+        ];
+        saveMasterGachas();
+    }
+
+    state.masterGachas.forEach(g => {
+        if (!state.masterItems[g.id]) {
+            state.masterItems[g.id] = [];
+        }
+    });
+
     saveMasterState();
 }
 
@@ -197,6 +221,10 @@ function getDefaultWeight(rarity) {
 
 function saveMasterState() {
     localStorage.setItem(STORAGE_KEY_MASTER, JSON.stringify(state.masterItems));
+}
+
+function saveMasterGachas() {
+    localStorage.setItem(STORAGE_KEY_GACHAS, JSON.stringify(state.masterGachas));
 }
 
 // --- Logic ---
@@ -292,10 +320,7 @@ function pullGacha(type) {
     if (!state.currentUser || state.currentUser.gold < GACHA_COST) return null;
 
     // Select Pool
-    let pool = [];
-    if (type === 'weapon') pool = state.masterItems.weapon;
-    if (type === 'material') pool = state.masterItems.material;
-    if (type === 'gold') pool = state.masterItems.gold;
+    let pool = state.masterItems[type] || [];
 
     if (!pool || pool.length === 0) {
         console.error("No items in pool for type:", type);
@@ -519,7 +544,7 @@ function renderDashboard() {
                         ${inventory.length === 0 ? '<div class="text-center text-gray-500 py-12">まだ何も持っていません。ガチャを引こう！</div>' : inventory.map(item => `
                             <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors">
                                 <div class="w-12 h-12 rounded flex items-center justify-center text-xl shadow-lg ${getRarityGradient(item.rarity)}">
-                                    ${item.type === 'weapon' ? '⚔️' : item.type === 'material' ? '🧱' : '💰'}
+                                    ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-6 h-6 text-white"></i>`}
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex justify-between items-start">
@@ -542,10 +567,8 @@ function renderDashboard() {
 }
 
 function getItemTypeJA(type) {
-    if (type === 'weapon') return '武器';
-    if (type === 'material') return '素材';
-    if (type === 'gold') return '財宝';
-    return type;
+    const gachaDef = state.masterGachas.find(g => g.id === type);
+    return gachaDef ? gachaDef.name : type;
 }
 
 function getRarityGradient(rarity) {
@@ -562,9 +585,7 @@ function renderGachaScene() {
     scene.innerHTML = `
         <h2 class="text-4xl font-fantasy text-gradient-gold mb-12 text-center drop-shadow-lg animate-pulse">運命を選べ</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 w-full px-4">
-            ${renderGachaCard('武器ガチャ', 'weapon', 'sword', 'red-500', 'https://images.unsplash.com/photo-1599839575945-a9e5af0c3fa5?q=80&w=2669&auto=format&fit=crop')}
-            ${renderGachaCard('素材ガチャ', 'material', 'hammer', 'blue-500', 'https://images.unsplash.com/photo-1621360841012-3f82b7c6c44f?q=80&w=2670&auto=format&fit=crop')}
-            ${renderGachaCard('ゴールドガチャ', 'gold', 'coins', 'yellow-500', 'https://images.unsplash.com/photo-1629814493203-9d41334c2225?q=80&w=2670&auto=format&fit=crop')}
+            ${state.masterGachas.map(g => renderGachaCard(g.name, g.id, g.icon || 'star', g.color || 'gold', g.image || '')).join('')}
         </div>
     `;
     app.appendChild(scene);
@@ -662,7 +683,7 @@ function renderGachaResult(item) {
             <div class="relative z-10 flex flex-col items-center text-center animate-bounce-in transform scale-110">
                 <div class="mb-8 relative">
                      <div class="w-56 h-56 rounded-2xl flex items-center justify-center text-8xl shadow-[0_0_150px_rgba(255,215,0,0.6)] ${getRarityGradient(item.rarity)} border-4 ${item.rarity >= 4 ? 'border-yellow-200' : 'border-transparent'}">
-                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl">` : (item.type === 'weapon' ? '⚔️' : item.type === 'material' ? '🧱' : '💰')}
+                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-24 h-24 text-white"></i>`}
                      </div>
                      <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-2 scale-125">
                         ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.8)] animate-pulse"></i>'.repeat(item.rarity)}
@@ -736,6 +757,9 @@ function verifyParentPin() {
                 </div>
 
                 <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1 pt-4">システム管理</h4>
+                <button onclick="renderGachaManager()" class="w-full bg-purple-600/50 hover:bg-purple-600 border border-purple-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
+                    <i data-lucide="layout-grid"></i> ガチャマシン管理
+                </button>
                 <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2 mb-2">
                     <i data-lucide="database"></i> アイテムデータベース編集
                 </button>
@@ -910,10 +934,10 @@ function renderItemManager(currentTab = 'weapon') {
                 </div>
 
                 <!-- Tabs -->
-                <div class="flex border-b border-white/10 px-6 pt-4 gap-4">
-                    <button onclick="renderItemManager('weapon')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'weapon' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">武器</button>
-                    <button onclick="renderItemManager('material')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'material' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">素材</button>
-                    <button onclick="renderItemManager('gold')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === 'gold' ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">財宝</button>
+                <div class="flex border-b border-white/10 px-6 pt-4 gap-4 overflow-x-auto custom-scrollbar whitespace-nowrap">
+                    ${state.masterGachas.map(g => `
+                    <button onclick="renderItemManager('${g.id}')" class="pb-3 px-2 border-b-2 transition-colors ${currentTab === g.id ? 'border-gold text-gold font-bold' : 'border-transparent text-gray-400 hover:text-white'}">${g.name}</button>
+                    `).join('')}
                 </div>
 
                 <!-- Toolbar -->
@@ -1122,4 +1146,173 @@ function saveItem(id, type) {
     saveMasterState();
     alert("保存しました！");
     renderItemManager(type);
+}
+
+// --- Gacha Manager ---
+function renderGachaManager() {
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-4xl h-[85vh] rounded-xl shadow-2xl flex flex-col animate-fade-in">
+                <!-- Header -->
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-2xl font-fantasy text-gold flex items-center gap-2">
+                        <i data-lucide="layout-grid"></i> ガチャマシン管理
+                    </h2>
+                    <button onclick="openParentMode()" class="text-gray-400 hover:text-white p-2">
+                        <i data-lucide="arrow-left" class="w-6 h-6"></i>
+                    </button>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="p-4 bg-black/20 flex justify-between items-center">
+                    <div class="text-sm text-gray-400">
+                        登録数: <span class="text-white font-bold">${state.masterGachas.length}</span>
+                    </div>
+                    <button onclick="openGachaEditor(null)" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded flex items-center gap-2 text-sm font-bold transition-colors">
+                        <i data-lucide="plus"></i> 新規ガチャ追加
+                    </button>
+                </div>
+
+                <!-- List -->
+                <div class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-2">
+                    ${state.masterGachas.map(g => `
+                        <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors group">
+                            <!-- Image Preview -->
+                            <div class="w-16 h-16 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-${g.color || 'gold'}">
+                                ${g.image ? `<img src="${g.image}" class="w-full h-full object-cover opacity-50">` : ''}
+                                <i data-lucide="${g.icon || 'star'}" class="absolute text-${g.color || 'white'} w-8 h-8"></i>
+                            </div>
+
+                            <!-- Info -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-white truncate text-lg">${g.name}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${g.id}</span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex gap-2">
+                                <button onclick="openGachaEditor('${g.id}')" class="p-2 hover:bg-white/10 rounded text-blue-400" title="編集">
+                                    <i data-lucide="edit-2" class="w-5 h-5"></i>
+                                </button>
+                                ${!['weapon', 'material', 'gold'].includes(g.id) ? `
+                                <button onclick="deleteGacha('${g.id}')" class="p-2 hover:bg-white/10 rounded text-red-400" title="削除">
+                                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                                </button>
+                                ` : `
+                                <div class="p-2 text-gray-600 cursor-not-allowed" title="デフォルトガチャは削除できません">
+                                    <i data-lucide="lock" class="w-5 h-5"></i>
+                                </div>
+                                `}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function deleteGacha(id) {
+    if (!confirm("本当にこのガチャを削除しますか？\n(紐づくアイテムは表示されなくなりますが、ユーザーの所持品からは消えません)")) return;
+
+    state.masterGachas = state.masterGachas.filter(g => g.id !== id);
+    saveMasterGachas();
+    renderGachaManager();
+}
+
+function openGachaEditor(id) {
+    const gacha = id ? state.masterGachas.find(g => g.id === id) : {
+        id: '',
+        name: '',
+        icon: 'star',
+        color: 'white',
+        image: ''
+    };
+
+    const isNew = !id;
+    const isDefault = ['weapon', 'material', 'gold'].includes(gacha.id);
+
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-2xl rounded-xl shadow-2xl animate-fade-in-up">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-xl font-fantasy text-gold">${isNew ? '新規ガチャ作成' : 'ガチャ編集'}</h2>
+                    <button onclick="renderGachaManager()" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                </div>
+
+                <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-xs text-gray-500 mb-1">ガチャ名</label>
+                            <input type="text" id="edit-gacha-name" value="${gacha.name}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: 防具ガチャ">
+                        </div>
+                        <div class="col-span-2 md:col-span-1">
+                            <label class="block text-xs text-gray-500 mb-1">ID (英数字)</label>
+                            <input type="text" id="edit-gacha-id" value="${gacha.id}" ${!isNew ? 'disabled' : ''} class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none ${!isNew ? 'opacity-50 cursor-not-allowed' : ''}" placeholder="例: armor">
+                            ${isNew ? '<p class="text-[10px] text-gray-500 mt-1">※作成後に変更することはできません</p>' : ''}
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">アイコン (Lucideアイコン名)</label>
+                            <input type="text" id="edit-gacha-icon" value="${gacha.icon}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: shield">
+                            <p class="text-[10px] text-gray-500 mt-1"><a href="https://lucide.dev/icons/" target="_blank" class="text-blue-400 hover:underline">アイコン一覧はこちら</a></p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">テーマカラー (Tailwind色指定)</label>
+                            <input type="text" id="edit-gacha-color" value="${gacha.color}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="例: green-500">
+                        </div>
+
+                        <div class="col-span-2">
+                            <label class="block text-xs text-gray-500 mb-1">背景画像 URL</label>
+                            <input type="text" id="edit-gacha-image" value="${gacha.image}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white focus:border-gold outline-none" placeholder="https://...">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
+                        <button onclick="renderGachaManager()" class="px-4 py-2 rounded text-gray-400 hover:text-white transition-colors">キャンセル</button>
+                        <button onclick="saveGacha('${gacha.id}', ${isNew})" class="btn-primary px-6 py-2 rounded shadow-lg">保存する</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function saveGacha(oldId, isNew) {
+    const name = document.getElementById('edit-gacha-name').value;
+    const id = isNew ? document.getElementById('edit-gacha-id').value : oldId;
+    const icon = document.getElementById('edit-gacha-icon').value || 'star';
+    const color = document.getElementById('edit-gacha-color').value || 'white';
+    const image = document.getElementById('edit-gacha-image').value;
+
+    if (!name || !id) return alert("ガチャ名とIDは必須です");
+    if (!/^[a-zA-Z0-9_]+$/.test(id)) return alert("IDは半角英数字とアンダースコアのみ使用できます");
+
+    if (isNew && state.masterGachas.some(g => g.id === id)) {
+        return alert("このIDは既に使われています");
+    }
+
+    const newGacha = { id, name, icon, color, image };
+
+    if (isNew) {
+        state.masterGachas.push(newGacha);
+        if (!state.masterItems[id]) {
+            state.masterItems[id] = [];
+        }
+    } else {
+        const index = state.masterGachas.findIndex(g => g.id === id);
+        if (index >= 0) {
+            state.masterGachas[index] = newGacha;
+        }
+    }
+
+    saveMasterGachas();
+    saveMasterState(); // To save new empty item arrays if created
+    alert("保存しました！");
+    renderGachaManager();
 }
