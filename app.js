@@ -23,10 +23,12 @@ let state = {
         resultLow: '',
         resultMid: '',
         resultHigh: ''
-    }
+    },
+    logoUrl: '' // URL for custom game logo
 };
 
 const STORAGE_KEY_SOUNDS = 'gacha_rpg_sounds';
+const STORAGE_KEY_LOGO = 'gacha_rpg_logo';
 
 // --- Audio Utilities ---
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -146,6 +148,11 @@ function loadState() {
         }
     }
 
+    const savedLogo = localStorage.getItem(STORAGE_KEY_LOGO);
+    if (savedLogo) {
+        state.logoUrl = savedLogo;
+    }
+
     initializeMasterData();
 }
 
@@ -156,6 +163,14 @@ function saveState() {
 
 function saveSoundSettings() {
     localStorage.setItem(STORAGE_KEY_SOUNDS, JSON.stringify(state.soundSettings));
+}
+
+function saveLogoSetting() {
+    if (state.logoUrl) {
+        localStorage.setItem(STORAGE_KEY_LOGO, state.logoUrl);
+    } else {
+        localStorage.removeItem(STORAGE_KEY_LOGO);
+    }
 }
 
 function initializeMasterData() {
@@ -448,12 +463,16 @@ function renderLogin() {
     // Using a simple toggle for Login/Register view inside the component
     const isRegistering = window.isRegisteringState || false;
 
+    const logoContent = state.logoUrl
+        ? `<img src="${state.logoUrl}" alt="Game Logo" class="max-h-32 mx-auto mb-6 object-contain">`
+        : `<div class="inline-block p-4 rounded-full bg-gradient-to-br from-gold-dark to-rpg-black border border-gold mb-4 shadow-lg shadow-gold/20">
+               <i data-lucide="sword" class="w-10 h-10 text-gold"></i>
+           </div>`;
+
     container.innerHTML = `
         <div class="w-full bg-glass p-8 rounded-2xl shadow-2xl shadow-gold/10 animate-fade-in-up">
             <div class="text-center mb-8">
-                <div class="inline-block p-4 rounded-full bg-gradient-to-br from-gold-dark to-rpg-black border border-gold mb-4 shadow-lg shadow-gold/20">
-                    <i data-lucide="sword" class="w-10 h-10 text-gold"></i>
-                </div>
+                ${logoContent}
                 <h2 class="text-3xl font-fantasy text-gradient-gold mb-2">${isRegistering ? '冒険者登録' : '冒険を再開'}</h2>
             </div>
             <form id="auth-form" class="space-y-6">
@@ -763,8 +782,11 @@ function verifyParentPin() {
                 <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2 mb-2">
                     <i data-lucide="database"></i> アイテムデータベース編集
                 </button>
-                <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
+                <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
                     <i data-lucide="music"></i> 効果音設定
+                </button>
+                <button onclick="renderLogoManager()" class="w-full bg-emerald-600/50 hover:bg-emerald-600 border border-emerald-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
+                    <i data-lucide="image"></i> ロゴ画像設定
                 </button>
             </div>
         `;
@@ -844,6 +866,57 @@ function saveSoundUrls() {
     });
     saveSoundSettings();
     alert("効果音設定を保存しました！");
+}
+
+function renderLogoManager() {
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-lg rounded-xl shadow-2xl animate-fade-in-up">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-xl font-fantasy text-gold flex items-center gap-2"><i data-lucide="image"></i> ロゴ画像設定 (URL)</h2>
+                    <button onclick="openParentMode();" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-xs text-gray-400 mb-4">初期画面に表示するゲームロゴ画像のURLを入力してください。空欄の場合はデフォルトのアイコンが表示されます。</p>
+
+                    <div>
+                        <label class="block text-sm text-gray-300 mb-1">ロゴ画像URL</label>
+                        <input type="text" id="logo-url-input" value="${state.logoUrl || ''}" placeholder="https://example.com/logo.png" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-gold outline-none">
+                    </div>
+
+                    <div class="mt-4 p-4 border border-gray-700 rounded bg-black/30 flex justify-center items-center min-h-[100px]">
+                        ${state.logoUrl ? `<img src="${state.logoUrl}" alt="Preview" class="max-h-24 object-contain">` : `<span class="text-gray-500 text-sm">プレビュー（未設定）</span>`}
+                    </div>
+
+                    <div class="flex justify-end pt-4 border-t border-white/10">
+                        <button onclick="saveLogoUrl()" class="btn-primary px-8 py-2 rounded shadow-lg flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> 保存する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+
+    // Add real-time preview update
+    document.getElementById('logo-url-input').addEventListener('input', (e) => {
+        const previewContainer = e.target.closest('.p-6').querySelector('.min-h-\\[100px\\]');
+        if (e.target.value) {
+            previewContainer.innerHTML = `<img src="${e.target.value}" alt="Preview" class="max-h-24 object-contain" onerror="this.outerHTML='<span class=\\'text-red-500 text-sm\\'>画像の読み込みに失敗しました</span>'">`;
+        } else {
+            previewContainer.innerHTML = `<span class="text-gray-500 text-sm">プレビュー（未設定）</span>`;
+        }
+    });
+}
+
+function saveLogoUrl() {
+    const url = document.getElementById('logo-url-input').value.trim();
+    state.logoUrl = url;
+    saveLogoSetting();
+    alert("ロゴ画像設定を保存しました！");
+    render(); // Re-render in case login screen needs update
+    openParentMode(); // Go back to parent menu
 }
 
 // --- Transfer Modal ---
