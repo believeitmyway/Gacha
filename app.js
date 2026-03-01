@@ -1154,14 +1154,16 @@ function renderItemManager(currentTab = 'weapon') {
 
                             <!-- Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-white truncate">${item.name}</span>
-                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${item.id}</span>
-                                </div>
-                                <div class="flex items-center gap-4 text-xs text-gray-400 mt-1">
-                                    <span class="text-yellow-500">★${item.rarity}</span>
-                                    <span>Weight: <b class="text-white">${item.weight}</b></span>
-                                    ${item.value ? `<span>Value: ${item.value}G</span>` : ''}
+                                <div class="flex flex-col gap-1">
+                                    <span class="font-bold text-white break-words">${item.name}</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${item.id}</span>
+                                        <div class="flex items-center gap-4 text-xs text-gray-400">
+                                            <span class="text-yellow-500">★${item.rarity}</span>
+                                            <span>Weight: <b class="text-white">${item.weight}</b></span>
+                                            ${item.value ? `<span>Value: ${item.value}G</span>` : ''}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1378,10 +1380,12 @@ function renderGachaManager() {
 
                             <!-- Info -->
                             <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2">
-                                    <span class="font-bold text-white truncate text-lg">${g.name}</span>
-                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${g.id}</span>
-                                    <span class="text-xs px-2 py-0.5 rounded bg-gold/20 text-gold border border-gold/30">${g.cost ?? GACHA_COST} G</span>
+                                <div class="flex flex-col gap-1">
+                                    <span class="font-bold text-white text-lg break-words">${g.name}</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-300">ID: ${g.id}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded bg-gold/20 text-gold border border-gold/30">${g.cost ?? GACHA_COST} G</span>
+                                    </div>
                                 </div>
                             </div>
 
