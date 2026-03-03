@@ -29,7 +29,8 @@ let state = {
         resultMid: '',   // ★3-4
         resultHigh: ''   // ★5
     },
-    logoUrl: '' // URL for custom game logo
+    logoUrl: '', // URL for custom game logo
+    isParentModeAuthenticated: false
 };
 
 const STORAGE_KEY_SOUNDS = 'gacha_rpg_sounds';
@@ -898,6 +899,7 @@ function renderGachaResult(item, skipAnimation = false) {
 }
 
 function closeModal() {
+    state.isParentModeAuthenticated = false;
     modalContainer.innerHTML = '';
     modalContainer.className = "fixed inset-0 z-50 pointer-events-none flex items-center justify-center";
     render(); // Re-render to update gold/inventory
@@ -919,6 +921,8 @@ function renderParentModeButton() {
 function openParentMode() {
     modalContainer.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-auto";
     const userOptions = state.users.map(u => `<option value="${u.id}">${u.username} (${u.gold}G)</option>`).join("");
+    // We store options for later use if needed
+    window.tempUserOptions = userOptions;
 
     modalContainer.innerHTML = `
         <div class="bg-rpg-dark border border-gold/40 p-6 rounded-lg shadow-2xl w-80 animate-fade-in-up">
@@ -927,54 +931,65 @@ function openParentMode() {
                 <button onclick="closeModal()" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
             </div>
             <div id="parent-content">
-                <input type="password" id="parent-pin" placeholder="暗証番号 (PIN)" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white mb-2">
-                <button onclick="verifyParentPin()" class="w-full bg-gold/20 text-gold border border-gold/50 rounded py-2">認証</button>
+                ${state.isParentModeAuthenticated ? '' : `
+                    <input type="password" id="parent-pin" placeholder="暗証番号 (PIN)" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white mb-2">
+                    <button onclick="verifyParentPin()" class="w-full bg-gold/20 text-gold border border-gold/50 rounded py-2">認証</button>
+                `}
             </div>
         </div>
     `;
-    // We store options for later use if needed
-    window.tempUserOptions = userOptions;
+
+    if (state.isParentModeAuthenticated) {
+        renderParentMenu();
+    }
+
     lucide.createIcons();
 }
 
 function verifyParentPin() {
     const pin = document.getElementById('parent-pin').value;
     if (pin === '20211004') {
-        const content = document.getElementById('parent-content');
-        content.innerHTML = `
-            <div class="space-y-4">
-                <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1">ゴールド管理</h4>
-                <select id="parent-user-select" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
-                    <option value="">対象の冒険者を選択</option>
-                    ${window.tempUserOptions}
-                </select>
-                <div class="flex gap-2">
-                    <input type="number" id="parent-amount" value="500" class="flex-1 bg-black/50 border border-gray-600 rounded p-2 text-white">
-                    <button onclick="execAddGold()" class="px-4 bg-gold/20 text-gold border border-gold/50 rounded hover:bg-gold/30">追加</button>
-                </div>
-
-                <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1 pt-4">システム管理</h4>
-                <button onclick="renderGachaManager()" class="w-full bg-purple-600/50 hover:bg-purple-600 border border-purple-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
-                    <i data-lucide="layout-grid"></i> ガチャマシン管理
-                </button>
-                <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2 mb-2">
-                    <i data-lucide="database"></i> アイテムデータベース編集
-                </button>
-                <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
-                    <i data-lucide="music"></i> 効果音設定
-                </button>
-                <button onclick="renderMovieManager()" class="w-full bg-red-600/50 hover:bg-red-600 border border-red-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
-                    <i data-lucide="video"></i> ムービー設定
-                </button>
-                <button onclick="renderLogoManager()" class="w-full bg-emerald-600/50 hover:bg-emerald-600 border border-emerald-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
-                    <i data-lucide="image"></i> ロゴ画像設定
-                </button>
-            </div>
-        `;
-        lucide.createIcons();
+        state.isParentModeAuthenticated = true;
+        renderParentMenu();
     } else {
         alert("暗証番号が違います");
     }
+}
+
+function renderParentMenu() {
+    const content = document.getElementById('parent-content');
+    if (!content) return;
+    content.innerHTML = `
+        <div class="space-y-4">
+            <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1">ゴールド管理</h4>
+            <select id="parent-user-select" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
+                <option value="">対象の冒険者を選択</option>
+                ${window.tempUserOptions}
+            </select>
+            <div class="flex gap-2">
+                <input type="number" id="parent-amount" value="500" class="flex-1 bg-black/50 border border-gray-600 rounded p-2 text-white">
+                <button onclick="execAddGold()" class="px-4 bg-gold/20 text-gold border border-gold/50 rounded hover:bg-gold/30">追加</button>
+            </div>
+
+            <h4 class="text-sm font-bold text-gray-400 border-b border-gray-700 pb-1 pt-4">システム管理</h4>
+            <button onclick="renderGachaManager()" class="w-full bg-purple-600/50 hover:bg-purple-600 border border-purple-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
+                <i data-lucide="layout-grid"></i> ガチャマシン管理
+            </button>
+            <button onclick="renderItemManager()" class="w-full btn-primary py-2 flex items-center justify-center gap-2 mb-2">
+                <i data-lucide="database"></i> アイテムデータベース編集
+            </button>
+            <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
+                <i data-lucide="music"></i> 効果音設定
+            </button>
+            <button onclick="renderMovieManager()" class="w-full bg-red-600/50 hover:bg-red-600 border border-red-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
+                <i data-lucide="video"></i> ムービー設定
+            </button>
+            <button onclick="renderLogoManager()" class="w-full bg-emerald-600/50 hover:bg-emerald-600 border border-emerald-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
+                <i data-lucide="image"></i> ロゴ画像設定
+            </button>
+        </div>
+    `;
+    lucide.createIcons();
 }
 
 function execAddGold() {
@@ -1250,7 +1265,7 @@ function renderItemManager(currentTab = 'weapon') {
                     <h2 class="text-2xl font-fantasy text-gold flex items-center gap-2">
                         <i data-lucide="database"></i> アイテムデータベース
                     </h2>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-white p-2">
+                    <button onclick="openParentMode()" class="text-gray-400 hover:text-white p-2">
                         <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
                 </div>
@@ -1502,7 +1517,7 @@ function renderGachaManager() {
                     ${state.masterGachas.map(g => `
                         <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors group">
                             <!-- Image Preview -->
-                            <div class="w-16 h-16 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-${g.color || 'gold'}">
+                            <div class="relative w-16 h-16 rounded bg-gray-800 flex items-center justify-center overflow-hidden border border-${g.color || 'gold'}">
                                 ${g.image ? `<img src="${g.image}" class="w-full h-full object-cover opacity-50">` : ''}
                                 <i data-lucide="${g.icon || 'star'}" class="absolute text-${g.color || 'white'} w-8 h-8"></i>
                             </div>
