@@ -409,7 +409,7 @@ function pullGacha(type, cost) {
     state.currentUser.gold -= cost;
 
     // Add item or value
-    if (type === 'gold' && item.value) {
+    if (item.value && item.value > 0) {
         state.currentUser.gold += item.value;
     } else {
         state.currentUser.inventory.push({ ...item, acquiredAt: Date.now() });
@@ -762,7 +762,7 @@ function renderGachaResult(item, skipAnimation = false) {
     let extraEffects = '';
 
     // Check if it's a new item (not in history before this pull, which means inventory count is 1 for this id if non-gold)
-    const isNewItem = item.type !== 'gold' && state.currentUser.inventory.filter(i => i.id === item.id).length === 1;
+    const isNewItem = !(item.value && item.value > 0) && state.currentUser.inventory.filter(i => i.id === item.id).length === 1;
 
     // Determine effects based on rarity
     if (item.rarity === 5) {
@@ -1377,12 +1377,11 @@ function openItemEditor(itemId, type) {
                             <p class="text-[10px] text-gray-500 mt-1">数値が高いほど当たりやすくなります</p>
                         </div>
 
-                        ${type === 'gold' ? `
                         <div class="col-span-2">
                             <label class="block text-xs text-gray-500 mb-1">獲得ゴールド量</label>
                             <input type="number" id="edit-value" value="${item.value || 0}" class="w-full bg-black/50 border border-gray-600 rounded p-2 text-white">
+                            <p class="text-[10px] text-gray-500 mt-1">※ 0より大きい値が設定されている場合、アイテムではなくゴールドとして獲得します</p>
                         </div>
-                        ` : ''}
                     </div>
 
                     <!-- Description -->
@@ -1444,7 +1443,8 @@ function saveItem(id, type) {
     const rarity = parseInt(document.getElementById('edit-rarity').value);
     const weight = parseInt(document.getElementById('edit-weight').value);
     const desc = document.getElementById('edit-desc').value;
-    const val = document.getElementById('edit-value') ? parseInt(document.getElementById('edit-value').value) : undefined;
+    const valInput = document.getElementById('edit-value');
+    const val = valInput && valInput.value ? parseInt(valInput.value) : 0;
 
     if (!name) return alert("名前を入力してください");
 
