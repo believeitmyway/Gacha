@@ -24,10 +24,16 @@ let state = {
         resultMid: '',
         resultHigh: ''
     },
+    movieSettings: {
+        resultLow: '',   // ★1-2
+        resultMid: '',   // ★3-4
+        resultHigh: ''   // ★5
+    },
     logoUrl: '' // URL for custom game logo
 };
 
 const STORAGE_KEY_SOUNDS = 'gacha_rpg_sounds';
+const STORAGE_KEY_MOVIES = 'gacha_rpg_movies';
 const STORAGE_KEY_LOGO = 'gacha_rpg_logo';
 
 // --- Audio Utilities ---
@@ -167,6 +173,15 @@ function loadState() {
         }
     }
 
+    const savedMovies = localStorage.getItem(STORAGE_KEY_MOVIES);
+    if (savedMovies) {
+        try {
+            state.movieSettings = JSON.parse(savedMovies);
+        } catch (e) {
+            console.error("Failed to load movie settings", e);
+        }
+    }
+
     const savedLogo = localStorage.getItem(STORAGE_KEY_LOGO);
     if (savedLogo) {
         state.logoUrl = savedLogo;
@@ -182,6 +197,10 @@ function saveState() {
 
 function saveSoundSettings() {
     localStorage.setItem(STORAGE_KEY_SOUNDS, JSON.stringify(state.soundSettings));
+}
+
+function saveMovieSettings() {
+    localStorage.setItem(STORAGE_KEY_MOVIES, JSON.stringify(state.movieSettings));
 }
 
 function saveLogoSetting() {
@@ -666,11 +685,43 @@ function startGacha(type) {
         return;
     }
 
-    playSound('gachaPull');
-
     // Pull the item immediately so we know its rarity and can adjust the animation intensity
     const item = pullGacha(type, cost);
     if (!item) return;
+
+    // Check if a custom movie is set for this rarity
+    let movieUrl = '';
+    if (item.rarity === 5 && state.movieSettings.resultHigh) movieUrl = state.movieSettings.resultHigh;
+    else if ((item.rarity === 4 || item.rarity === 3) && state.movieSettings.resultMid) movieUrl = state.movieSettings.resultMid;
+    else if ((item.rarity === 2 || item.rarity === 1) && state.movieSettings.resultLow) movieUrl = state.movieSettings.resultLow;
+
+    if (movieUrl) {
+        // Play movie instead of default animation
+        modalContainer.className = "fixed inset-0 z-50 flex items-center justify-center bg-black pointer-events-auto";
+        modalContainer.innerHTML = `
+            <video id="gacha-movie" src="${movieUrl}" class="w-full h-full object-contain cursor-pointer" autoplay playsinline></video>
+            <div class="absolute bottom-4 right-4 text-white/50 text-sm pointer-events-none">クリックでスキップ</div>
+        `;
+
+        const videoElement = document.getElementById('gacha-movie');
+        // Handle playback end or user click
+        const showResult = () => {
+            renderGachaResult(item, true); // true = skipAnimation
+        };
+
+        videoElement.onended = showResult;
+        videoElement.onclick = showResult;
+
+        // Handle play errors (e.g. invalid URL)
+        videoElement.onerror = () => {
+            console.error("Failed to play custom movie:", movieUrl);
+            renderGachaResult(item, true);
+        };
+        return;
+    }
+
+
+    playSound('gachaPull');
 
     // Adjust shake intensity and colors based on rarity
     const isHighRarity = item.rarity >= 4;
@@ -699,12 +750,12 @@ function startGacha(type) {
     const delay = isMaxRarity ? 2500 : isHighRarity ? 2200 : 1800;
 
     setTimeout(() => {
-        renderGachaResult(item);
+        renderGachaResult(item, false);
     }, delay);
 }
 
-function renderGachaResult(item) {
-    let delay = 0;
+function renderGachaResult(item, skipAnimation = false) {
+    let delay = skipAnimation ? 0 : 0;
     let shakeClass = '';
     let particles = '';
     let soundType = 'resultLow';
@@ -771,8 +822,13 @@ function renderGachaResult(item) {
         }
     }
 
-    // Pre-result suspense for high rarity
-    if (delay > 0) {
+    // Adjust delay based on skipAnimation flag
+    if (skipAnimation) {
+        delay = 0;
+    }
+
+    // Pre-result suspense for high rarity (only if not skipping animation)
+    if (!skipAnimation && delay > 0) {
         const ringColor = item.rarity === 5 ? 'border-yellow-400 shadow-[0_0_150px_rgba(250,204,21,1)]' : 'border-purple-500 shadow-[0_0_100px_rgba(168,85,247,1)]';
 
         modalContainer.innerHTML = `
@@ -785,6 +841,8 @@ function renderGachaResult(item) {
     }
 
     setTimeout(() => {
+        // If movie was played, maybe don't play the result sound, or do we?
+        // We'll play it anyway as the result reveal effect.
         playSound(soundType);
 
         const gradientBg = item.rarity === 5 ? 'from-yellow-600/50 via-red-900/30 to-black' :
@@ -905,6 +963,9 @@ function verifyParentPin() {
                 <button onclick="renderSoundManager()" class="w-full bg-blue-600/50 hover:bg-blue-600 border border-blue-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
                     <i data-lucide="music"></i> 効果音設定
                 </button>
+                <button onclick="renderMovieManager()" class="w-full bg-red-600/50 hover:bg-red-600 border border-red-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors mb-2">
+                    <i data-lucide="video"></i> ムービー設定
+                </button>
                 <button onclick="renderLogoManager()" class="w-full bg-emerald-600/50 hover:bg-emerald-600 border border-emerald-400/50 rounded py-2 flex items-center justify-center gap-2 text-white transition-colors">
                     <i data-lucide="image"></i> ロゴ画像設定
                 </button>
@@ -986,6 +1047,74 @@ function saveSoundUrls() {
     });
     saveSoundSettings();
     alert("効果音設定を保存しました！");
+}
+
+function renderMovieManager() {
+    modalContainer.innerHTML = `
+        <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-rpg-dark border border-gold/40 w-full max-w-2xl rounded-xl shadow-2xl animate-fade-in-up">
+                <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                    <h2 class="text-xl font-fantasy text-gold flex items-center gap-2"><i data-lucide="video"></i> ムービー設定 (URL)</h2>
+                    <button onclick="openParentMode();" class="text-gray-400 hover:text-white"><i data-lucide="x"></i></button>
+                </div>
+                <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <p class="text-xs text-gray-400 mb-4">ガチャ実行時に再生する動画ファイルのURL（mp4など）を入力してください。空欄の場合は既存の演出になります。</p>
+
+                    ${createMovieInput('resultLow', '低レア動画（★1-2）')}
+                    ${createMovieInput('resultMid', '中レア動画（★3-4）')}
+                    ${createMovieInput('resultHigh', '高レア動画（★5）')}
+
+                    <div class="flex justify-end pt-4 border-t border-white/10">
+                        <button onclick="saveMovieUrls()" class="btn-primary px-8 py-2 rounded shadow-lg flex items-center gap-2">
+                            <i data-lucide="save" class="w-4 h-4"></i> 保存する
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+}
+
+function createMovieInput(key, label) {
+    const val = state.movieSettings[key] || '';
+    return `
+        <div>
+            <label class="block text-sm text-gray-300 mb-1">${label}</label>
+            <div class="flex gap-2">
+                <input type="text" id="movie-${key}" value="${val}" placeholder="https://example.com/movie.mp4" class="flex-1 bg-black/50 border border-gray-600 rounded p-2 text-white text-sm focus:border-gold outline-none">
+                <button onclick="testCustomMovie('movie-${key}')" class="px-3 bg-gray-700 hover:bg-gray-600 rounded text-white" title="再生テスト">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function testCustomMovie(inputId) {
+    const url = document.getElementById(inputId).value;
+    if (url) {
+        // Temporarily append a small video player
+        const testContainer = document.createElement('div');
+        testContainer.className = "fixed bottom-4 right-4 z-[100] w-64 bg-black border border-gray-500 rounded p-2 shadow-xl";
+        testContainer.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-xs text-white">プレビュー</span>
+                <button onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-red-300 text-xs">閉じる</button>
+            </div>
+            <video src="${url}" controls autoplay muted class="w-full h-auto bg-black rounded"></video>
+        `;
+        document.body.appendChild(testContainer);
+    }
+}
+
+function saveMovieUrls() {
+    const keys = ['resultLow', 'resultMid', 'resultHigh'];
+    keys.forEach(k => {
+        state.movieSettings[k] = document.getElementById(`movie-${k}`).value;
+    });
+    saveMovieSettings();
+    alert("ムービー設定を保存しました！");
 }
 
 function renderLogoManager() {
