@@ -9,6 +9,18 @@ const STORAGE_KEY_MASTER = 'gacha_rpg_master_items';
 const STORAGE_KEY_GACHAS = 'gacha_rpg_master_gachas';
 
 // Simple State
+let gachaCache = null;
+
+function getGachaDef(id) {
+    if (!gachaCache) {
+        gachaCache = Object.create(null);
+        state.masterGachas.forEach(g => {
+            gachaCache[g.id] = g;
+        });
+    }
+    return gachaCache[id];
+}
+
 let state = {
     users: [],
     currentUser: null,
@@ -260,6 +272,7 @@ function initializeMasterData() {
         ];
         saveMasterGachas();
     }
+    gachaCache = null;
 
     state.masterGachas.forEach(g => {
         if (!state.masterItems[g.id]) {
@@ -611,7 +624,7 @@ function renderDashboard() {
                         ${inventory.length === 0 ? '<div class="text-center text-gray-500 py-12">まだ何も持っていません。ガチャを引こう！</div>' : inventory.map(item => `
                             <div class="flex items-center gap-4 bg-black/40 p-3 rounded-lg border border-white/5 hover:border-gold/30 transition-colors">
                                 <div class="w-12 h-12 rounded flex items-center justify-center text-xl shadow-lg ${getRarityGradient(item.rarity)}">
-                                    ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-6 h-6 text-white"></i>`}
+                                    ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded">` : `<i data-lucide="${(getGachaDef(item.type) || {}).icon || 'star'}" class="w-6 h-6 text-white"></i>`}
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex justify-between items-start">
@@ -634,7 +647,7 @@ function renderDashboard() {
 }
 
 function getItemTypeJA(type) {
-    const gachaDef = state.masterGachas.find(g => g.id === type);
+    const gachaDef = getGachaDef(type);
     return gachaDef ? gachaDef.name : type;
 }
 
@@ -678,7 +691,7 @@ function renderGachaCard(title, type, icon, color, imgUrl, cost) {
 }
 
 function startGacha(type) {
-    const gachaDef = state.masterGachas.find(g => g.id === type);
+    const gachaDef = getGachaDef(type);
     const cost = gachaDef && gachaDef.cost !== undefined ? gachaDef.cost : GACHA_COST;
 
     if (state.currentUser.gold < cost) {
@@ -873,7 +886,7 @@ function renderGachaResult(item, skipAnimation = false) {
                      <div class="w-64 h-64 rounded-2xl flex items-center justify-center text-8xl ${cardGlow} ${getRarityGradient(item.rarity)} border-4 ${item.rarity >= 4 ? 'border-yellow-200' : 'border-gray-500'} relative overflow-hidden">
                         <div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         ${item.rarity >= 4 ? `<div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent -translate-x-full animate-[shine_2s_infinite]"></div>` : ''}
-                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl shadow-inner">` : `<i data-lucide="${(state.masterGachas.find(g => g.id === item.type) || {}).icon || 'star'}" class="w-32 h-32 text-white drop-shadow-2xl"></i>`}
+                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover rounded-xl shadow-inner">` : `<i data-lucide="${(getGachaDef(item.type) || {}).icon || 'star'}" class="w-32 h-32 text-white drop-shadow-2xl"></i>`}
                      </div>
                      <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 flex gap-2 ${starAnimation} bg-black/50 px-6 py-2 rounded-full backdrop-blur-md border border-yellow-500/30">
                         ${'<i data-lucide="star" class="w-8 h-8 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,1)]"></i>'.repeat(item.rarity)}
@@ -1538,15 +1551,9 @@ function renderGachaManager() {
                                 <button onclick="openGachaEditor('${g.id}')" class="p-2 hover:bg-white/10 rounded text-blue-400" title="編集">
                                     <i data-lucide="edit-2" class="w-5 h-5"></i>
                                 </button>
-                                ${!['weapon', 'material', 'gold'].includes(g.id) ? `
                                 <button onclick="deleteGacha('${g.id}')" class="p-2 hover:bg-white/10 rounded text-red-400" title="削除">
                                     <i data-lucide="trash-2" class="w-5 h-5"></i>
                                 </button>
-                                ` : `
-                                <div class="p-2 text-gray-600 cursor-not-allowed" title="デフォルトガチャは削除できません">
-                                    <i data-lucide="lock" class="w-5 h-5"></i>
-                                </div>
-                                `}
                             </div>
                         </div>
                     `).join('')}
@@ -1561,12 +1568,13 @@ function deleteGacha(id) {
     if (!confirm("本当にこのガチャを削除しますか？\n(紐づくアイテムは表示されなくなりますが、ユーザーの所持品からは消えません)")) return;
 
     state.masterGachas = state.masterGachas.filter(g => g.id !== id);
+    gachaCache = null;
     saveMasterGachas();
     renderGachaManager();
 }
 
 function openGachaEditor(id) {
-    const gacha = id ? state.masterGachas.find(g => g.id === id) : {
+    const gacha = id ? getGachaDef(id) : {
         id: '',
         name: '',
         icon: 'star',
@@ -1661,6 +1669,7 @@ function saveGacha(oldId, isNew) {
         }
     }
 
+    gachaCache = null;
     saveMasterGachas();
     saveMasterState(); // To save new empty item arrays if created
     alert("保存しました！");
