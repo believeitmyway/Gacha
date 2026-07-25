@@ -888,7 +888,7 @@ function renderGachaResultMulti(items) {
         });
 
         html += `
-            <div class="relative bg-black border-2 rounded-xl p-3 flex flex-col items-center justify-center text-center animate-zoom-in ${cardStyle} ${glowStyle}" style="animation-delay: ${animDelay}s;">
+            <div class="relative bg-black border-2 rounded-xl p-3 flex flex-col items-center justify-center text-center opacity-0 animate-zoom-in ${cardStyle} ${glowStyle}" style="animation-delay: ${animDelay}s;">
                 <div class="mb-2">
                     <i data-lucide="${iconType}" class="w-8 h-8 ${colorClass}"></i>
                 </div>

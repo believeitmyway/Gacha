@@ -1,0 +1,11 @@
+--- app.js
++++ app.js
+@@ -796,7 +796,7 @@
+         // Calculate a slight delay for staggered animation
+         const delay = index * 50;
+
+-        card.className = `relative bg-rpg-dark border-2 ${borderClass} ${glowClass} rounded-lg p-4 flex flex-col items-center justify-center opacity-0 animate-zoom-in`;
++        card.className = `relative bg-rpg-dark border-2 ${borderClass} ${glowClass} rounded-lg p-4 flex flex-col items-center justify-center animate-zoom-in`;
+         card.style.animationDelay = `${delay}ms`;
+
+         const safeName = escapeHTML(item.name);
